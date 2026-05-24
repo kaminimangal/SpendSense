@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — FinTracker{% endblock %}
+{% block crumb %}Dashboard{% endblock %}
+
+{% block content %}
+
+{# ----- Compute a few summary values in Jinja ----- #}
+{% set total_spent = totals|sum %}
+{% set expense_count = expenses|length %}
+{% set avg_expense = (total_spent / expense_count) if expense_count > 0 else 0 %}
+{% if totals and totals|length > 0 %}
+  {% set _max = totals|max %}
+  {% set _top_idx = totals.index(_max) %}
+  {% set top_category = categories[_top_idx] %}
+  {% set top_amount   = _max %}
+{% else %}
+  {% set top_category = '—' %}
+  {% set top_amount   = 0 %}
+{% endif %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Good to see you, {{ username }} 👋</h1>
+    <p>Here's a snapshot of your spending across all categories.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('list_categories') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-tags"></i> Manage categories
+    </a>
+    <a href="{{ url_for('add_expense') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add expense
+    </a>
+  </div>
+</div>
+
+{# ---------- Stat cards ---------- #}
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Total spent</span>
+      <span class="stat-icon"><i class="fa-solid fa-wallet"></i></span>
+    </div>
+    <div class="stat-value">${{ '{:,.2f}'.format(total_spent) }}</div>
+    <div class="stat-foot">Across {{ expense_count }} expense{{ '' if expense_count == 1 else 's' }}</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Top category</span>
+      <span class="stat-icon is-violet"><i class="fa-solid fa-crown"></i></span>
+    </div>
+    <div class="stat-value" style="font-size: 22px;">{{ top_category }}</div>
+    <div class="stat-foot">${{ '{:,.2f}'.format(top_amount) }} this period</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Expenses logged</span>
+      <span class="stat-icon is-blue"><i class="fa-solid fa-receipt"></i></span>
+    </div>
+    <div class="stat-value">{{ expense_count }}</div>
+    <div class="stat-foot">All time</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Average expense</span>
+      <span class="stat-icon is-amber"><i class="fa-solid fa-chart-line"></i></span>
+    </div>
+    <div class="stat-value">${{ '{:,.2f}'.format(avg_expense) }}</div>
+    <div class="stat-foot">Per entry</div>
+  </div>
+</div>
+
+{# ---------- Chart + suggestions ---------- #}
+<div class="dash-grid">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Spending by category</h3>
+        <div class="ch-sub">A breakdown of where your money has gone.</div>
+      </div>
+      <span class="pill is-green"><span class="cat-dot"></span> {{ categories|length }} categor{{ 'y' if categories|length == 1 else 'ies' }}</span>
+    </div>
+    <div class="card-body">
+      {% if categories and categories|length > 0 %}
+      <div class="chart-wrap">
+        <div class="chart-canvas-wrap">
+          <canvas id="categoryChart"></canvas>
+          <div class="chart-center">
+            <div class="cc-label">Total</div>
+            <div class="cc-value">${{ '{:,.0f}'.format(total_spent) }}</div>
+          </div>
+        </div>
+        <div class="legend" id="categoryLegend">
+          {% for cat in categories %}
+            {% set amt = totals[loop.index0] %}
+            {% set pct = (amt / total_spent * 100) if total_spent > 0 else 0 %}
+            <div class="legend-row">
+              <span class="sw" data-i="{{ loop.index0 }}"></span>
+              <span class="lbl">{{ cat }}</span>
+              <span class="pct">{{ '%.1f'|format(pct) }}%</span>
+              <span class="val">${{ '{:,.2f}'.format(amt) }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="empty">
+        <div class="empty-mark"><i class="fa-solid fa-chart-pie"></i></div>
+        <h4>Nothing to chart yet</h4>
+        <p>Add your first expense to see your category breakdown here.</p>
+        <a href="{{ url_for('add_expense') }}" class="btn btn-primary">
+          <i class="fa-solid fa-plus"></i> Add expense
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Suggestions</h3>
+        <div class="ch-sub">Personalized insights from your spending.</div>
+      </div>
+      <span class="pill"><i class="fa-solid fa-lightbulb" style="font-size: 10px;"></i> Smart</span>
+    </div>
+    <div class="card-body">
+      {% if suggestions and suggestions|length > 0 %}
+      <div class="sugg-list">
+        {% for s in suggestions %}
+          <div class="sugg {% if 'reviewing' in s or 'high' in s|lower %}is-warn{% endif %}">
+            <div class="sugg-icon">
+              <i class="fa-solid {% if 'reviewing' in s or 'high' in s|lower %}fa-triangle-exclamation{% else %}fa-lightbulb{% endif %}"></i>
+            </div>
+            <div class="sugg-text">{{ s }}</div>
+          </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty" style="padding: 32px 16px;">
+        <div class="empty-mark"><i class="fa-solid fa-lightbulb"></i></div>
+        <h4>No suggestions yet</h4>
+        <p>Track more expenses and we'll surface insights here.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ---------- Expenses table ---------- #}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>Recent expenses</h3>
+      <div class="ch-sub">Every transaction you've logged.</div>
+    </div>
+    <a href="{{ url_for('add_expense') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-plus"></i> New expense
+    </a>
+  </div>
+
+  {% if expenses and expenses|length > 0 %}
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Category</th>
+          <th>Date</th>
+          <th style="text-align: right;">Amount</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for expense in expenses %}
+        {% set color_classes = ['is-green','is-blue','is-amber','is-violet','is-pink','is-cyan','is-slate'] %}
+        {% set cname = expense.category.name if expense.category else 'Uncategorized' %}
+        {% set cidx  = (cname|length) % 7 %}
+        <tr>
+          <td>
+            <div class="with-icon">
+              <span class="cat-dot" style="background: var(--accent);"></span>
+              <strong>{{ expense.title }}</strong>
+            </div>
+          </td>
+          <td>
+            <span class="pill {{ color_classes[cidx] }}">
+              <span class="cat-dot"></span> {{ cname }}
+            </span>
+          </td>
+          <td class="muted">{{ expense.date }}</td>
+          <td style="text-align: right;" class="amt">${{ '{:,.2f}'.format(expense.amount) }}</td>
+          <td class="actions-col">
+            <a href="{{ url_for('edit_expense', id=expense.id) }}" class="tbl-act" title="Edit">
+              <i class="fa-solid fa-pen"></i>
+            </a>
+            <a href="{{ url_for('delete_expense', id=expense.id) }}" class="tbl-act is-danger"
+               title="Delete"
+               onclick="return confirm('Delete this expense? This cannot be undone.');">
+              <i class="fa-solid fa-trash"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-mark"><i class="fa-solid fa-receipt"></i></div>
+    <h4>No expenses yet</h4>
+    <p>Start tracking your spending by adding your first expense.</p>
+    <a href="{{ url_for('add_expense') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add your first expense
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    var ctx = document.getElementById('categoryChart');
+    if (!ctx) return;
+
+    var labels = {{ categories|tojson }};
+    var data   = {{ totals|tojson }};
+    var palette = ['#10B981','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#64748B','#EF4444'];
+    var colors = labels.map(function (_, i) { return palette[i % palette.length]; });
+
+    // Color the legend swatches to match
+    document.querySelectorAll('#categoryLegend .sw').forEach(function (el) {
+      var i = parseInt(el.dataset.i, 10);
+      el.style.background = colors[i % colors.length];
+    });
+
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: colors,
+          borderColor: '#ffffff',
+          borderWidth: 3,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0F172A',
+            padding: 12,
+            cornerRadius: 8,
+            titleFont: { family: 'Inter', weight: '600' },
+            bodyFont:  { family: 'Inter' },
+            callbacks: {
+              label: function (ctx) {
+                var v = ctx.raw;
+                var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                var pct = total ? (v / total * 100).toFixed(1) : 0;
+                return ' $' + v.toFixed(2) + ' · ' + pct + '%';
+              }
+            }
+          }
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}

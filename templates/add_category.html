@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Add category — FinTracker{% endblock %}
+{% block crumb %}Categories · New{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="ph-text">
+    <h1>New category</h1>
+    <p>Categories help group expenses so trends stand out.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('list_categories') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back to categories
+    </a>
+  </div>
+</div>
+
+<div class="card form-card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-tag" style="color: var(--accent); margin-right: 8px;"></i> Category details</h3>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('add_category') }}"
+          class="form-grid" style="display:flex; flex-direction:column; gap: 18px;" novalidate>
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" class="input"
+               placeholder="e.g. Groceries, Transport, Subscriptions" required autofocus />
+        <span class="hint">Keep it short — this shows up in dropdowns and chart legends.</span>
+      </div>
+
+      <div class="field">
+        <label for="description">Description <span class="muted" style="font-weight: 400;">(optional)</span></label>
+        <textarea id="description" name="description" class="textarea"
+                  placeholder="What does this category include? e.g. supermarket runs, food delivery, snacks…"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('list_categories') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-check"></i> Create category
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

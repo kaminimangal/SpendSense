@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Add expense — FinTracker{% endblock %}
+{% block crumb %}Expenses · New{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Add a new expense</h1>
+    <p>Log a transaction so it shows up on your dashboard and breakdown.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back to dashboard
+    </a>
+  </div>
+</div>
+
+<div class="card form-card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-receipt" style="color: var(--accent); margin-right: 8px;"></i> Expense details</h3>
+    <span class="muted" style="font-size: 12px;">All fields required</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('add_expense') }}" class="form-grid" style="display:flex; flex-direction:column; gap: 18px;" novalidate>
+
+      <div class="field">
+        <label for="title">Title</label>
+        <input id="title" name="title" type="text" class="input"
+               placeholder="e.g. Weekly groceries at Trader Joe's" required />
+        <span class="hint">A short description so future-you remembers what it was.</span>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="amount">Amount</label>
+          <div class="input-affix">
+            <span class="affix left" style="font-weight: 600; color: var(--text-2);">$</span>
+            <input id="amount" name="amount" type="number" step="0.01" min="0"
+                   class="input has-left" placeholder="0.00" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date" class="input" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="category">Category</label>
+        {% if categories and categories|length > 0 %}
+          <select id="category" name="category" class="select" required>
+            <option value="" disabled selected>Choose a category…</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <span class="hint">
+            Don't see the right one? <a href="{{ url_for('add_category') }}" style="color: var(--accent-600); font-weight: 600;">Create a new category</a>.
+          </span>
+        {% else %}
+          <div class="flash is-warning" style="margin: 0;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+              You don't have any categories yet.
+              <a href="{{ url_for('add_category') }}" style="font-weight: 600; text-decoration: underline;">Create one first</a>
+              to start tracking expenses.
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" {% if not categories %}disabled{% endif %}>
+          <i class="fa-solid fa-check"></i> Save expense
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

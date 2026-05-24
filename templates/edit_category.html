@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Edit category — FinTracker{% endblock %}
+{% block crumb %}Categories · Edit{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Edit category</h1>
+    <p>Update the details for <strong>{{ category.name }}</strong>.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('list_categories') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back to categories
+    </a>
+    <a href="{{ url_for('delete_category', id=category.id) }}" class="btn btn-danger"
+       onclick="return confirm('Delete the category \'{{ category.name }}\'? Expenses in it will lose their category.');">
+      <i class="fa-solid fa-trash"></i> Delete
+    </a>
+  </div>
+</div>
+
+<div class="card form-card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-pen-to-square" style="color: var(--accent); margin-right: 8px;"></i> Category details</h3>
+    <span class="muted" style="font-size: 12px;">Editing #{{ category.id }}</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('edit_category', id=category.id) }}"
+          class="form-grid" style="display:flex; flex-direction:column; gap: 18px;" novalidate>
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" class="input"
+               value="{{ category.name }}" required />
+      </div>
+
+      <div class="field">
+        <label for="description">Description <span class="muted" style="font-weight: 400;">(optional)</span></label>
+        <textarea id="description" name="description" class="textarea"
+                  placeholder="What does this category include?">{{ category.description or '' }}</textarea>
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('list_categories') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-check"></i> Save changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

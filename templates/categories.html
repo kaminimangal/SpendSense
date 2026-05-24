@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Categories — FinTracker{% endblock %}
+{% block crumb %}Categories{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Categories</h1>
+    <p>Organize your expenses into custom buckets to see clearer trends.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Dashboard
+    </a>
+    <a href="{{ url_for('add_category') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> New category
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>All categories</h3>
+      <div class="ch-sub">{{ categories|length }} total</div>
+    </div>
+  </div>
+
+  {% if categories and categories|length > 0 %}
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th style="width: 28%;">Name</th>
+          <th>Description</th>
+          <th style="text-align: right; width: 14%;">Expenses</th>
+          <th class="actions-col" style="width: 14%;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for category in categories %}
+        {% set color_classes = ['is-green','is-blue','is-amber','is-violet','is-pink','is-cyan','is-slate'] %}
+        {% set cidx  = (category.name|length) % 7 %}
+        <tr>
+          <td>
+            <span class="pill {{ color_classes[cidx] }}">
+              <span class="cat-dot"></span> {{ category.name }}
+            </span>
+          </td>
+          <td class="muted">
+            {{ category.description if category.description else '—' }}
+          </td>
+          <td style="text-align: right;" class="amt">{{ category.expenses|length if category.expenses else 0 }}</td>
+          <td class="actions-col">
+            <a href="{{ url_for('edit_category', id=category.id) }}" class="tbl-act" title="Edit">
+              <i class="fa-solid fa-pen"></i>
+            </a>
+            <a href="{{ url_for('delete_category', id=category.id) }}" class="tbl-act is-danger"
+               title="Delete"
+               onclick="return confirm('Delete the category \'{{ category.name }}\'? Expenses in it will lose their category.');">
+              <i class="fa-solid fa-trash"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-mark"><i class="fa-solid fa-tags"></i></div>
+    <h4>No categories yet</h4>
+    <p>Create your first category — like "Groceries" or "Transport" — to start grouping expenses.</p>
+    <a href="{{ url_for('add_category') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Create first category
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
