@@ -21,7 +21,7 @@ def load_user(user_id):
 
 @app.route('/')
 def home():
-    return render_template('dashboard.html')
+    return redirect(url_for('dashboard'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

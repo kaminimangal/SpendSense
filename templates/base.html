@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,12 +10,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 
   {% block head_extra %}{% endblock %}
 </head>
+
 <body>
   {% block body %}
   <div class="app-shell">
@@ -29,15 +31,15 @@
       <nav class="nav-group" aria-label="Primary">
         <div class="nav-label">Overview</div>
         <a href="{{ url_for('dashboard') }}"
-           class="nav-item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
           <i class="fa-solid fa-chart-pie"></i> Dashboard
         </a>
         <a href="{{ url_for('add_expense') }}"
-           class="nav-item {% if request.endpoint == 'add_expense' or request.endpoint == 'edit_expense' %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint == 'add_expense' or request.endpoint == 'edit_expense' %}is-active{% endif %}">
           <i class="fa-solid fa-receipt"></i> Expenses
         </a>
         <a href="{{ url_for('list_categories') }}"
-           class="nav-item {% if request.endpoint in ['list_categories','add_category','edit_category'] %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint in ['list_categories','add_category','edit_category'] %}is-active{% endif %}">
           <i class="fa-solid fa-tags"></i> Categories
         </a>
       </nav>
@@ -100,23 +102,23 @@
       <div class="page">
         {# ---------- Flash messages ---------- #}
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div class="flash-stack">
-              {% for category, message in messages %}
-                <div class="flash is-{{ category }}">
-                  <i class="fa-solid
+        {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+          <div class="flash is-{{ category }}">
+            <i class="fa-solid
                     {% if category == 'success' %}fa-circle-check
                     {% elif category == 'error' or category == 'danger' %}fa-circle-exclamation
                     {% elif category == 'warning' %}fa-triangle-exclamation
                     {% else %}fa-circle-info{% endif %}"></i>
-                  <div>{{ message }}</div>
-                  <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Dismiss">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-              {% endfor %}
-            </div>
-          {% endif %}
+            <div>{{ message }}</div>
+            <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Dismiss">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
@@ -129,7 +131,7 @@
     // Mobile sidebar toggle
     (function () {
       var btn = document.getElementById('menuToggle');
-      var sb  = document.getElementById('sidebar');
+      var sb = document.getElementById('sidebar');
       if (btn && sb) {
         btn.addEventListener('click', function () { sb.classList.toggle('is-open'); });
       }
@@ -138,4 +140,5 @@
 
   {% block scripts %}{% endblock %}
 </body>
+
 </html>
