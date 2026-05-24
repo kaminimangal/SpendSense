@@ -71,7 +71,8 @@
             </div>
             <div class="field">
               <label for="confirm_password">Confirm new password</label>
-              <input id="confirm_password" name="confirm_password" type="password" class="input" required minlength="6" />
+              <input id="confirm_password" name="confirm_password" type="password" class="input" required
+                minlength="6" />
             </div>
           </div>
           <div style="display: flex; justify-content: flex-end;">
@@ -94,8 +95,18 @@
           <div class="field">
             <label for="currency">Currency symbol</label>
             <div style="display: flex; gap: 8px; align-items: center;">
-              <input id="currency" name="currency" type="text" class="input"
-                     value="{{ user.currency or '$' }}" maxlength="4" style="max-width: 140px;" />
+              <select id="currency" name="currency" class="select" style="max-width: 260px;">
+                <option value="$" {% if (user.currency or '$' )=='$' %}selected{% endif %}>$ — US Dollar</option>
+                <option value="₹" {% if (user.currency or '$' )=='₹' %}selected{% endif %}>₹ — Indian Rupee</option>
+                <option value="€" {% if (user.currency or '$' )=='€' %}selected{% endif %}>€ — Euro</option>
+                <option value="£" {% if (user.currency or '$' )=='£' %}selected{% endif %}>£ — British Pound</option>
+                <option value="¥" {% if (user.currency or '$' )=='¥' %}selected{% endif %}>¥ — Japanese Yen</option>
+                <option value="A$" {% if (user.currency or '$' )=='A$' %}selected{% endif %}>A$ — Australian Dollar
+                </option>
+                <option value="C$" {% if (user.currency or '$' )=='C$' %}selected{% endif %}>C$ — Canadian Dollar
+                </option>
+                <option value="AED" {% if (user.currency or '$' )=='AED' %}selected{% endif %}>AED — UAE Dirham</option>
+              </select>
               <span class="muted" style="font-size: 13px;">
                 Pick any glyph — $, £, €, ¥, ₹, kr…
               </span>
@@ -119,7 +130,7 @@
       <div class="card-body">
         <div class="theme-toggle-group">
           <button type="button" class="theme-tile is-light {% if user.theme != 'dark' %}is-selected{% endif %}"
-                  data-theme="light" id="tile-light">
+            data-theme="light" id="tile-light">
             <div class="theme-preview">
               <div class="tp-sidebar"></div>
               <div class="tp-main"></div>
@@ -130,7 +141,7 @@
             </div>
           </button>
           <button type="button" class="theme-tile is-dark {% if user.theme == 'dark' %}is-selected{% endif %}"
-                  data-theme="dark" id="tile-dark">
+            data-theme="dark" id="tile-dark">
             <div class="theme-preview">
               <div class="tp-sidebar"></div>
               <div class="tp-main"></div>

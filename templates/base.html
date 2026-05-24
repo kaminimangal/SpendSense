@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="{% if current_user.is_authenticated and current_user.theme == 'dark' %}dark{% else %}light{% endif %}">
+<html lang="en"
+  data-theme="{% if current_user.is_authenticated and current_user.theme == 'dark' %}dark{% else %}light{% endif %}">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,12 +11,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 
   {% block head_extra %}{% endblock %}
 </head>
+
 <body>
   {% block body %}
   <div class="app-shell">
@@ -29,11 +33,11 @@
       <nav class="nav-group" aria-label="Primary">
         <div class="nav-label">Overview</div>
         <a href="{{ url_for('dashboard') }}"
-           class="nav-item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
           <i class="fa-solid fa-chart-pie"></i> Dashboard
         </a>
         <a href="{{ url_for('monthly_summary') }}"
-           class="nav-item {% if request.endpoint == 'monthly_summary' %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint == 'monthly_summary' %}is-active{% endif %}">
           <i class="fa-solid fa-chart-line"></i> Trends
         </a>
       </nav>
@@ -41,15 +45,14 @@
       <nav class="nav-group" aria-label="Money">
         <div class="nav-label">Money</div>
         <a href="{{ url_for('add_expense') }}"
-           class="nav-item {% if request.endpoint in ['add_expense','edit_expense'] %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint in ['add_expense','edit_expense'] %}is-active{% endif %}">
           <i class="fa-solid fa-receipt"></i> Expenses
         </a>
         <a href="{{ url_for('list_income') }}"
-           class="nav-item {% if request.endpoint in ['list_income','add_income','edit_income'] %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint in ['list_income','add_income','edit_income'] %}is-active{% endif %}">
           <i class="fa-solid fa-arrow-trend-up"></i> Income
         </a>
-        <a href="{{ url_for('upi_log') }}"
-           class="nav-item {% if request.endpoint == 'upi_log' %}is-active{% endif %}">
+        <a href="{{ url_for('upi_log') }}" class="nav-item {% if request.endpoint == 'upi_log' %}is-active{% endif %}">
           <i class="fa-solid fa-mobile-screen-button"></i> UPI log
         </a>
       </nav>
@@ -57,15 +60,15 @@
       <nav class="nav-group" aria-label="Planning">
         <div class="nav-label">Planning</div>
         <a href="{{ url_for('list_categories') }}"
-           class="nav-item {% if request.endpoint in ['list_categories','add_category','edit_category'] %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint in ['list_categories','add_category','edit_category'] %}is-active{% endif %}">
           <i class="fa-solid fa-tags"></i> Categories
         </a>
         <a href="{{ url_for('list_budgets') }}"
-           class="nav-item {% if request.endpoint in ['list_budgets','add_budget','edit_budget'] %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint in ['list_budgets','add_budget','edit_budget'] %}is-active{% endif %}">
           <i class="fa-solid fa-bullseye"></i> Budgets
         </a>
         <a href="{{ url_for('list_goals') }}"
-           class="nav-item {% if request.endpoint in ['list_goals','add_goal','edit_goal'] %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint in ['list_goals','add_goal','edit_goal'] %}is-active{% endif %}">
           <i class="fa-solid fa-piggy-bank"></i> Goals
         </a>
       </nav>
@@ -73,7 +76,7 @@
       <nav class="nav-group" aria-label="Account">
         <div class="nav-label">Account</div>
         <a href="{{ url_for('settings') }}"
-           class="nav-item {% if request.endpoint == 'settings' %}is-active{% endif %}">
+          class="nav-item {% if request.endpoint == 'settings' %}is-active{% endif %}">
           <i class="fa-solid fa-gear"></i> Settings
         </a>
         <a href="{{ url_for('export_csv') }}" class="nav-item">
@@ -118,10 +121,10 @@
           <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">
             <i class="fa-solid fa-moon" id="themeIcon"></i>
           </button>
-          <button class="icon-btn" title="Notifications" aria-label="Notifications">
+          <!-- <button class="icon-btn" title="Notifications" aria-label="Notifications">
             <i class="fa-regular fa-bell"></i>
             <span class="dot"></span>
-          </button>
+          </button> -->
           <a class="icon-btn" href="{{ url_for('settings') }}" title="Settings" aria-label="Settings">
             <i class="fa-solid fa-gear"></i>
           </a>
@@ -131,23 +134,23 @@
       <div class="page">
         {# ---------- Flash messages ---------- #}
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div class="flash-stack">
-              {% for category, message in messages %}
-                <div class="flash is-{{ category }}">
-                  <i class="fa-solid
+        {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+          <div class="flash is-{{ category }}">
+            <i class="fa-solid
                     {% if category == 'success' %}fa-circle-check
                     {% elif category == 'error' or category == 'danger' %}fa-circle-exclamation
                     {% elif category == 'warning' %}fa-triangle-exclamation
                     {% else %}fa-circle-info{% endif %}"></i>
-                  <div>{{ message }}</div>
-                  <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Dismiss">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-              {% endfor %}
-            </div>
-          {% endif %}
+            <div>{{ message }}</div>
+            <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Dismiss">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
@@ -165,7 +168,7 @@
     // Mobile sidebar toggle
     (function () {
       var btn = document.getElementById('menuToggle');
-      var sb  = document.getElementById('sidebar');
+      var sb = document.getElementById('sidebar');
       if (btn && sb) {
         btn.addEventListener('click', function () { sb.classList.toggle('is-open'); });
       }
@@ -198,7 +201,7 @@
       {% if current_user.is_authenticated %}
       btn.addEventListener('click', function () {
         var current = document.documentElement.getAttribute('data-theme');
-        var next    = current === 'dark' ? 'light' : 'dark';
+        var next = current === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         sync();
         // Persist server-side
@@ -206,7 +209,7 @@
         fd.append('action', 'theme');
         fd.append('theme', next);
         fetch("{{ url_for('settings') }}", { method: 'POST', body: fd })
-          .catch(function(){ /* offline — keep local change */ });
+          .catch(function () { /* offline — keep local change */ });
       });
       {% else %}
       btn.style.display = 'none';
@@ -234,4 +237,5 @@
 
   {% block scripts %}{% endblock %}
 </body>
+
 </html>
