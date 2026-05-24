@@ -1,6 +1,9 @@
 import os
 import csv
 import io
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import (Flask, render_template, request, redirect,
                    url_for, flash, send_file, jsonify)
 from flask_login import (LoginManager, login_user, login_required,
@@ -8,7 +11,7 @@ from flask_login import (LoginManager, login_user, login_required,
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime
-from models import db, User, Expense, Category, Budget
+from models import db, User, Expense, Category, Budget, Income, SavingsGoal
 
 # ─────────────────────────────────────────
 #  App config
@@ -19,11 +22,19 @@ app.config['SQLALCHEMY_DATABASE_URI']     = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Receipt uploads
-app.config['UPLOAD_FOLDER']  = os.path.join('static', 'receipts')
+app.config['UPLOAD_FOLDER']      = os.path.join('static', 'receipts')
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024   # 5 MB max
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Gmail SMTP — set MAIL_USERNAME / MAIL_PASSWORD env vars to your Gmail address
+# and a Google "App Password" (NOT your regular password).
+# Generate one at: https://myaccount.google.com/apppasswords
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'your-email@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'your-app-password')
+app.config['MAIL_SERVER']   = 'smtp.gmail.com'
+app.config['MAIL_PORT']     = 587
 
 db.init_app(app)
 
@@ -100,22 +111,24 @@ def logout():
     return redirect(url_for('login'))
 
 # ─────────────────────────────────────────
-#  Dashboard
+#  Dashboard  (with filters + Net Balance)
 # ─────────────────────────────────────────
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    now      = datetime.now()
-    expenses = Expense.query.filter_by(user_id=current_user.id).all()
+    now = datetime.now()
+
+    # ── Full unfiltered expenses — used for stats / chart / budget warnings ──
+    all_expenses = Expense.query.filter_by(user_id=current_user.id).all()
 
     category_totals = {}
-    for expense in expenses:
+    for expense in all_expenses:
         cname = expense.category.name if expense.category else 'Uncategorized'
         category_totals[cname] = category_totals.get(cname, 0) + expense.amount
 
-    # Budget warnings
-    budgets       = Budget.query.filter_by(user_id=current_user.id,
-                                            month=now.month, year=now.year).all()
+    # ── Budget warnings (unchanged) ──
+    budgets         = Budget.query.filter_by(user_id=current_user.id,
+                                              month=now.month, year=now.year).all()
     budget_warnings = []
     for budget in budgets:
         spent = db.session.query(db.func.sum(Expense.amount)).filter(
@@ -140,17 +153,71 @@ def dashboard():
         else:
             suggestions.append('Your spending is within a reasonable range. Keep it up!')
 
+    # ── NEW: Net Balance (income - expense, all time) ──
+    total_income = db.session.query(db.func.sum(Income.amount))\
+                     .filter_by(user_id=current_user.id).scalar() or 0
+    total_expense_all = sum(e.amount for e in all_expenses)
+    net_balance = total_income - total_expense_all
+
+    # ── NEW: Filter expenses for the table ──
+    f_from = (request.args.get('from')     or '').strip()
+    f_to   = (request.args.get('to')       or '').strip()
+    f_cat  = (request.args.get('category') or '').strip()
+    f_min  = (request.args.get('min')      or '').strip()
+    f_max  = (request.args.get('max')      or '').strip()
+    f_q    = (request.args.get('q')        or '').strip()
+
+    q = Expense.query.filter_by(user_id=current_user.id)
+    if f_from:
+        q = q.filter(Expense.date >= f_from)
+    if f_to:
+        q = q.filter(Expense.date <= f_to)
+    if f_cat:
+        try:
+            q = q.filter(Expense.category_id == int(f_cat))
+        except ValueError:
+            pass
+    if f_min:
+        try:
+            q = q.filter(Expense.amount >= float(f_min))
+        except ValueError:
+            pass
+    if f_max:
+        try:
+            q = q.filter(Expense.amount <= float(f_max))
+        except ValueError:
+            pass
+    if f_q:
+        q = q.filter(Expense.title.ilike(f'%{f_q}%'))
+
+    filtered_expenses = q.order_by(Expense.date.desc()).all()
+    has_filter = bool(f_from or f_to or f_cat or f_min or f_max or f_q)
+
+    all_categories = Category.query.order_by(Category.name).all()
+
     return render_template('dashboard.html',
                            username        = current_user.username,
-                           expenses        = expenses,
+                           expenses        = filtered_expenses,
+                           all_expenses_count = len(all_expenses),
+                           has_filter      = has_filter,
+                           all_categories  = all_categories,
+                           filter_from     = f_from,
+                           filter_to       = f_to,
+                           filter_cat      = f_cat,
+                           filter_min      = f_min,
+                           filter_max      = f_max,
+                           filter_q        = f_q,
                            categories      = list(category_totals.keys()),
                            totals          = list(category_totals.values()),
                            suggestions     = suggestions,
                            budget_warnings = budget_warnings,
-                           currency        = current_user.currency)
+                           currency        = current_user.currency,
+                           total_income    = total_income,
+                           total_expense   = total_expense_all,
+                           net_balance     = net_balance)
 
 # ─────────────────────────────────────────
-#  Expenses — CRUD
+#  Expenses — CRUD  (unchanged)
 # ─────────────────────────────────────────
 @app.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -165,26 +232,19 @@ def add_expense():
         notes       = request.form.get('notes', '').strip()
         is_recurring = 'is_recurring' in request.form
 
-        # Handle receipt upload
         receipt_path = None
         file = request.files.get('receipt')
         if file and file.filename and allowed_file(file.filename):
             filename     = secure_filename(
                 f"{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
-            save_path    = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(save_path)
-            receipt_path = filename   # store just the filename
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            receipt_path = filename
 
         new_expense = Expense(
-            title       = title,
-            amount      = amount,
-            date        = date,
-            user_id     = current_user.id,
-            category_id = category_id,
-            upi_ref     = upi_ref or None,
-            notes       = notes or None,
-            is_recurring = is_recurring,
-            receipt     = receipt_path
+            title=title, amount=amount, date=date,
+            user_id=current_user.id, category_id=category_id,
+            upi_ref=upi_ref or None, notes=notes or None,
+            is_recurring=is_recurring, receipt=receipt_path
         )
         db.session.add(new_expense)
         db.session.commit()
@@ -210,15 +270,13 @@ def edit_expense(id):
         expense.notes       = request.form.get('notes', '').strip() or None
         expense.is_recurring = 'is_recurring' in request.form
 
-        # Replace receipt if new file uploaded
         file = request.files.get('receipt')
         if file and file.filename and allowed_file(file.filename):
-            # Delete old file if exists
             if expense.receipt:
                 old = os.path.join(app.config['UPLOAD_FOLDER'], expense.receipt)
                 if os.path.exists(old):
                     os.remove(old)
-            filename        = secure_filename(
+            filename = secure_filename(
                 f"{current_user.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             expense.receipt = filename
@@ -236,7 +294,6 @@ def delete_expense(id):
     if expense.user_id != current_user.id:
         flash('Not authorized.', 'error')
         return redirect(url_for('dashboard'))
-    # Delete receipt file too
     if expense.receipt:
         path = os.path.join(app.config['UPLOAD_FOLDER'], expense.receipt)
         if os.path.exists(path):
@@ -247,94 +304,177 @@ def delete_expense(id):
     return redirect(url_for('dashboard'))
 
 # ─────────────────────────────────────────
-#  Export to CSV  ← NEW
+#  Export to CSV  (unchanged)
 # ─────────────────────────────────────────
 @app.route('/export/csv')
 @login_required
 def export_csv():
     expenses = Expense.query.filter_by(user_id=current_user.id)\
                             .order_by(Expense.date.desc()).all()
-
     output = io.StringIO()
     writer = csv.writer(output)
-
-    # Header row
     writer.writerow(['Date', 'Title', 'Category', 'Amount',
                      'UPI Ref', 'Notes', 'Recurring'])
-
-    # Data rows
     for e in expenses:
         writer.writerow([
-            e.date,
-            e.title,
+            e.date, e.title,
             e.category.name if e.category else 'Uncategorized',
-            f'{e.amount:.2f}',
-            e.upi_ref   or '',
-            e.notes     or '',
+            f'{e.amount:.2f}', e.upi_ref or '', e.notes or '',
             'Yes' if e.is_recurring else 'No'
         ])
-
     output.seek(0)
     filename = f"fintracker_{current_user.username}_{datetime.now().strftime('%Y%m')}.csv"
-
-    return send_file(
-        io.BytesIO(output.getvalue().encode('utf-8')),
-        mimetype   = 'text/csv',
-        as_attachment = True,
-        download_name = filename
-    )
+    return send_file(io.BytesIO(output.getvalue().encode('utf-8')),
+                     mimetype='text/csv', as_attachment=True,
+                     download_name=filename)
 
 # ─────────────────────────────────────────
-#  Monthly Summary  ← NEW
+#  Monthly Summary  (now passes 12-month trend data)
 # ─────────────────────────────────────────
 @app.route('/summary')
 @login_required
 def monthly_summary():
     expenses = Expense.query.filter_by(user_id=current_user.id).all()
 
-    # Group by YYYY-MM
     monthly = {}
     for e in expenses:
-        key = e.date[:7]   # "2026-05"
+        key = e.date[:7]
         monthly[key] = monthly.get(key, 0) + e.amount
 
-    # Sort by date descending
     sorted_months = sorted(monthly.items(), reverse=True)
 
-    # Build richer data: month label, total, vs previous month
     summary_data = []
-    keys = [m[0] for m in sorted_months]
     for i, (key, total) in enumerate(sorted_months):
         prev_total = sorted_months[i + 1][1] if i + 1 < len(sorted_months) else None
-        if prev_total:
-            change_pct = ((total - prev_total) / prev_total) * 100
-        else:
-            change_pct = None
-
-        # Parse month label: "2026-05" → "May 2026"
+        change_pct = ((total - prev_total) / prev_total) * 100 if prev_total else None
         dt    = datetime.strptime(key, '%Y-%m')
         label = dt.strftime('%B %Y')
-
         summary_data.append({
-            'key'        : key,
-            'label'      : label,
-            'total'      : total,
-            'change_pct' : change_pct,
-            'up'         : change_pct > 0 if change_pct is not None else None
+            'key': key, 'label': label, 'total': total,
+            'change_pct': change_pct,
+            'up': change_pct > 0 if change_pct is not None else None
         })
 
-    # Month labels and totals for chart (chronological order)
-    chart_labels = [d['label'] for d in reversed(summary_data)]
-    chart_totals = [d['total'] for d in reversed(summary_data)]
+    # ── NEW: 12-month trend (fills missing months with 0) ──
+    now = datetime.now()
+    trend_labels, trend_totals = [], []
+    for i in range(11, -1, -1):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12; y -= 1
+        key   = f'{y}-{str(m).zfill(2)}'
+        label = datetime(y, m, 1).strftime('%b %Y')
+        trend_labels.append(label)
+        trend_totals.append(monthly.get(key, 0))
+
+    # Income trend for same window
+    incomes = Income.query.filter_by(user_id=current_user.id).all()
+    inc_monthly = {}
+    for inc in incomes:
+        key = inc.date[:7]
+        inc_monthly[key] = inc_monthly.get(key, 0) + inc.amount
+    inc_totals = []
+    for i in range(11, -1, -1):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12; y -= 1
+        inc_totals.append(inc_monthly.get(f'{y}-{str(m).zfill(2)}', 0))
 
     return render_template('monthly_summary.html',
-                           summary_data  = summary_data,
-                           chart_labels  = chart_labels,
-                           chart_totals  = chart_totals,
-                           currency      = current_user.currency)
+                           summary_data = summary_data,
+                           trend_labels = trend_labels,
+                           trend_totals = trend_totals,
+                           trend_income = inc_totals,
+                           currency     = current_user.currency,
+                           now          = now)
 
 # ─────────────────────────────────────────
-#  Settings  ← NEW
+#  Email Reports  ← NEW
+# ─────────────────────────────────────────
+@app.route('/reports/send', methods=['POST'])
+@login_required
+def send_report():
+    """Email the current month's expense summary to a recipient."""
+    email = (request.form.get('email') or '').strip()
+    if not email:
+        flash('Please provide an email address.', 'error')
+        return redirect(url_for('monthly_summary'))
+
+    now    = datetime.now()
+    prefix = f'{now.year}-{str(now.month).zfill(2)}'
+    expenses = Expense.query.filter(
+        Expense.user_id == current_user.id,
+        Expense.date.like(f'{prefix}%')
+    ).order_by(Expense.date.desc()).all()
+    total = sum(e.amount for e in expenses)
+    cur   = current_user.currency or '$'
+
+    # Group by category for a richer summary
+    by_cat = {}
+    for e in expenses:
+        cname = e.category.name if e.category else 'Uncategorized'
+        by_cat[cname] = by_cat.get(cname, 0) + e.amount
+
+    cat_rows = ''.join(
+        f'<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">{c}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;">'
+        f'{cur}{amt:,.2f}</td></tr>'
+        for c, amt in sorted(by_cat.items(), key=lambda kv: -kv[1])
+    )
+    exp_rows = ''.join(
+        f'<tr><td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;">{e.date}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;">{e.title}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;">'
+        f'{e.category.name if e.category else "—"}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;text-align:right;">'
+        f'{cur}{e.amount:,.2f}</td></tr>'
+        for e in expenses
+    )
+
+    html = f"""
+    <div style="font-family:Inter,Arial,sans-serif;color:#0F172A;max-width:640px;margin:0 auto;">
+      <div style="background:#0B1220;color:#fff;padding:24px;border-radius:12px 12px 0 0;">
+        <div style="font-size:14px;color:#94A3B8;letter-spacing:.06em;text-transform:uppercase;">FinTracker · Monthly report</div>
+        <h1 style="margin:6px 0 0;font-size:24px;font-weight:700;">{now.strftime('%B %Y')}</h1>
+      </div>
+      <div style="background:#fff;border:1px solid #E6E9EF;border-top:0;padding:24px;border-radius:0 0 12px 12px;">
+        <div style="display:inline-block;background:#ECFDF5;color:#047857;padding:12px 16px;border-radius:10px;font-weight:600;">
+          Total spent: {cur}{total:,.2f}
+        </div>
+        <p style="color:#475569;margin:18px 0 8px;">Hi {current_user.username}, here's your spending summary for {now.strftime('%B %Y')}.</p>
+
+        <h3 style="margin-top:24px;font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#475569;">By category</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">{cat_rows}</table>
+
+        <h3 style="margin-top:24px;font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#475569;">All transactions</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">{exp_rows or '<tr><td style="padding:12px;color:#94A3B8;">No expenses this month.</td></tr>'}</table>
+
+        <p style="color:#94A3B8;font-size:12px;margin-top:24px;">Sent automatically from FinTracker.</p>
+      </div>
+    </div>
+    """
+
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = f"FinTracker — {now.strftime('%B %Y')} report"
+    msg['From']    = app.config['MAIL_USERNAME']
+    msg['To']      = email
+    msg.attach(MIMEText(html, 'html'))
+
+    try:
+        with smtplib.SMTP(app.config['MAIL_SERVER'], app.config['MAIL_PORT']) as server:
+            server.starttls()
+            server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+            server.sendmail(app.config['MAIL_USERNAME'], email, msg.as_string())
+        flash(f'Report sent to {email}!', 'success')
+    except Exception as exc:
+        flash(f'Could not send email: {exc}', 'error')
+
+    return redirect(url_for('monthly_summary'))
+
+# ─────────────────────────────────────────
+#  Settings  (unchanged backend)
 # ─────────────────────────────────────────
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -342,7 +482,6 @@ def settings():
     if request.method == 'POST':
         action = request.form.get('action')
 
-        # ── Change username ──
         if action == 'username':
             new_username = request.form['username'].strip()
             if not new_username:
@@ -354,7 +493,6 @@ def settings():
                 db.session.commit()
                 flash('Username updated!', 'success')
 
-        # ── Change password ──
         elif action == 'password':
             current_pw  = request.form['current_password']
             new_pw      = request.form['new_password']
@@ -370,7 +508,6 @@ def settings():
                 db.session.commit()
                 flash('Password changed!', 'success')
 
-        # ── Change currency symbol ──
         elif action == 'currency':
             currency = request.form['currency'].strip()
             if currency:
@@ -378,7 +515,6 @@ def settings():
                 db.session.commit()
                 flash('Currency updated!', 'success')
 
-        # ── Toggle theme ──
         elif action == 'theme':
             theme = request.form.get('theme', 'light')
             current_user.theme = theme
@@ -390,10 +526,8 @@ def settings():
     return render_template('settings.html', user=current_user)
 
 # ─────────────────────────────────────────
-#  UPI Reference Log  ← NEW (realistic version)
+#  UPI Reference Log
 # ─────────────────────────────────────────
-# This route lets a user log an expense directly from a UPI
-# transaction reference number (like from PhonePe/GPay notification)
 @app.route('/upi/log', methods=['GET', 'POST'])
 @login_required
 def upi_log():
@@ -405,24 +539,13 @@ def upi_log():
         category_id = request.form['category']
         date        = request.form.get('date') or datetime.now().strftime('%Y-%m-%d')
 
-        # Check duplicate UPI ref for this user
-        duplicate = Expense.query.filter_by(
-            user_id = current_user.id,
-            upi_ref = upi_ref
-        ).first()
-
+        duplicate = Expense.query.filter_by(user_id=current_user.id, upi_ref=upi_ref).first()
         if duplicate:
             flash(f'UPI ref {upi_ref} already logged!', 'error')
         else:
-            expense = Expense(
-                title       = title,
-                amount      = amount,
-                date        = date,
-                user_id     = current_user.id,
-                category_id = category_id,
-                upi_ref     = upi_ref
-            )
-            db.session.add(expense)
+            db.session.add(Expense(title=title, amount=amount, date=date,
+                                   user_id=current_user.id, category_id=category_id,
+                                   upi_ref=upi_ref))
             db.session.commit()
             flash(f'UPI transaction {upi_ref} logged!', 'success')
             return redirect(url_for('dashboard'))
@@ -431,7 +554,7 @@ def upi_log():
                            today=datetime.now().strftime('%Y-%m-%d'))
 
 # ─────────────────────────────────────────
-#  Categories — CRUD
+#  Categories — CRUD  (unchanged)
 # ─────────────────────────────────────────
 @app.route('/categories')
 @login_required
@@ -476,7 +599,7 @@ def delete_category(id):
     return redirect(url_for('list_categories'))
 
 # ─────────────────────────────────────────
-#  Budgets — CRUD
+#  Budgets — CRUD  (unchanged)
 # ─────────────────────────────────────────
 @app.route('/budgets')
 @login_required
@@ -549,6 +672,123 @@ def delete_budget(id):
     db.session.commit()
     flash('Budget removed.', 'success')
     return redirect(url_for('list_budgets'))
+
+# ─────────────────────────────────────────
+#  Income — CRUD  ← NEW
+# ─────────────────────────────────────────
+@app.route('/income')
+@login_required
+def list_income():
+    incomes = Income.query.filter_by(user_id=current_user.id)\
+                          .order_by(Income.date.desc()).all()
+    total = sum(i.amount for i in incomes)
+    return render_template('income.html', incomes=incomes, total=total,
+                           currency=current_user.currency)
+
+@app.route('/income/add', methods=['GET', 'POST'])
+@login_required
+def add_income():
+    if request.method == 'POST':
+        title    = request.form['title']
+        amount   = float(request.form['amount'])
+        date     = request.form['date']
+        category = (request.form.get('category') or '').strip() or None
+        notes    = (request.form.get('notes')    or '').strip() or None
+        db.session.add(Income(title=title, amount=amount, date=date,
+                              user_id=current_user.id, category=category, notes=notes))
+        db.session.commit()
+        flash('Income added!', 'success')
+        return redirect(url_for('list_income'))
+    return render_template('add_income.html',
+                           today=datetime.now().strftime('%Y-%m-%d'),
+                           currency=current_user.currency)
+
+@app.route('/income/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_income(id):
+    income = db.get_or_404(Income, id)
+    if income.user_id != current_user.id:
+        flash('Not authorized.', 'error')
+        return redirect(url_for('list_income'))
+    if request.method == 'POST':
+        income.title    = request.form['title']
+        income.amount   = float(request.form['amount'])
+        income.date     = request.form['date']
+        income.category = (request.form.get('category') or '').strip() or None
+        income.notes    = (request.form.get('notes')    or '').strip() or None
+        db.session.commit()
+        flash('Income updated!', 'success')
+        return redirect(url_for('list_income'))
+    return render_template('edit_income.html', income=income,
+                           currency=current_user.currency)
+
+@app.route('/income/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_income(id):
+    income = db.get_or_404(Income, id)
+    if income.user_id != current_user.id:
+        flash('Not authorized.', 'error')
+        return redirect(url_for('list_income'))
+    db.session.delete(income)
+    db.session.commit()
+    flash('Income deleted!', 'success')
+    return redirect(url_for('list_income'))
+
+# ─────────────────────────────────────────
+#  Savings Goals — CRUD  ← NEW
+# ─────────────────────────────────────────
+@app.route('/goals')
+@login_required
+def list_goals():
+    goals = SavingsGoal.query.filter_by(user_id=current_user.id).all()
+    return render_template('goals.html', goals=goals,
+                           currency=current_user.currency)
+
+@app.route('/goals/add', methods=['GET', 'POST'])
+@login_required
+def add_goal():
+    if request.method == 'POST':
+        name          = request.form['name']
+        target_amount = float(request.form['target_amount'])
+        saved_amount  = float(request.form.get('saved_amount') or 0)
+        deadline      = (request.form.get('deadline') or '').strip() or None
+        db.session.add(SavingsGoal(name=name, target_amount=target_amount,
+                                   saved_amount=saved_amount, user_id=current_user.id,
+                                   deadline=deadline))
+        db.session.commit()
+        flash('Goal created!', 'success')
+        return redirect(url_for('list_goals'))
+    return render_template('add_goal.html', currency=current_user.currency)
+
+@app.route('/goals/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_goal(id):
+    goal = db.get_or_404(SavingsGoal, id)
+    if goal.user_id != current_user.id:
+        flash('Not authorized.', 'error')
+        return redirect(url_for('list_goals'))
+    if request.method == 'POST':
+        goal.name          = request.form['name']
+        goal.target_amount = float(request.form['target_amount'])
+        goal.saved_amount  = float(request.form.get('saved_amount') or 0)
+        goal.deadline      = (request.form.get('deadline') or '').strip() or None
+        db.session.commit()
+        flash('Goal updated!', 'success')
+        return redirect(url_for('list_goals'))
+    return render_template('edit_goal.html', goal=goal,
+                           currency=current_user.currency)
+
+@app.route('/goals/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_goal(id):
+    goal = db.get_or_404(SavingsGoal, id)
+    if goal.user_id != current_user.id:
+        flash('Not authorized.', 'error')
+        return redirect(url_for('list_goals'))
+    db.session.delete(goal)
+    db.session.commit()
+    flash('Goal deleted!', 'success')
+    return redirect(url_for('list_goals'))
 
 # ─────────────────────────────────────────
 #  Run

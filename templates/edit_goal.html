@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Edit goal — FinTracker{% endblock %}
+{% block crumb %}Goals · Edit{% endblock %}
+
+{% block content %}
+{% set cur = currency or '$' %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Edit goal</h1>
+    <p>Update progress for <strong>{{ goal.name }}</strong>.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('list_goals') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back to goals
+    </a>
+    <form method="POST" action="{{ url_for('delete_goal', id=goal.id) }}" class="inline-form"
+          onsubmit="return confirm('Delete the goal {{ goal.name }}?');">
+      <button type="submit" class="btn btn-danger">
+        <i class="fa-solid fa-trash"></i> Delete
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card form-card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-pen-to-square" style="color: var(--accent); margin-right: 8px;"></i> Goal details</h3>
+    <span class="muted" style="font-size: 12px;">Editing #{{ goal.id }}</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('edit_goal', id=goal.id) }}"
+          class="form-grid" style="display:flex; flex-direction:column; gap: 18px;" novalidate>
+
+      <div class="field">
+        <label for="name">Goal name</label>
+        <input id="name" name="name" type="text" class="input" value="{{ goal.name }}" required />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="target_amount">Target amount</label>
+          <div class="input-affix">
+            <span class="affix left" style="font-weight: 600; color: var(--text-2);">{{ cur }}</span>
+            <input id="target_amount" name="target_amount" type="number" step="0.01" min="0"
+                   class="input has-left" value="{{ goal.target_amount }}" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="saved_amount">Saved so far</label>
+          <div class="input-affix">
+            <span class="affix left" style="font-weight: 600; color: var(--text-2);">{{ cur }}</span>
+            <input id="saved_amount" name="saved_amount" type="number" step="0.01" min="0"
+                   class="input has-left" value="{{ goal.saved_amount }}" />
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="deadline">Deadline</label>
+        <input id="deadline" name="deadline" type="date" class="input" value="{{ goal.deadline or '' }}" />
+      </div>
+
+      {# Live progress preview #}
+      {% set pct_raw = (goal.saved_amount / goal.target_amount * 100) if goal.target_amount > 0 else 0 %}
+      {% set pct     = pct_raw if pct_raw <= 100 else 100 %}
+      <div style="padding: 14px; background: var(--surface-2); border-radius: 10px; border: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+          <span style="font-size: 13px; color: var(--text-2); font-weight: 500;">Current progress</span>
+          <span class="goal-pct">{{ '%.0f'|format(pct_raw) }}%</span>
+        </div>
+        <div class="progress">
+          <div class="progress-bar" style="width: {{ pct }}%;"></div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('list_goals') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-check"></i> Save changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

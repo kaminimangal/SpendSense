@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Add income — FinTracker{% endblock %}
+{% block crumb %}Income · New{% endblock %}
+
+{% block content %}
+{% set cur = currency or '$' %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Log new income</h1>
+    <p>Record money coming in — salary, freelance, gifts, refunds.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('list_income') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back to income
+    </a>
+  </div>
+</div>
+
+<div class="card form-card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-arrow-trend-up" style="color: var(--accent); margin-right: 8px;"></i> Income details</h3>
+    <span class="muted" style="font-size: 12px;">Title, amount and date required</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('add_income') }}"
+          class="form-grid" style="display:flex; flex-direction:column; gap: 18px;" novalidate>
+
+      <div class="field">
+        <label for="title">Title</label>
+        <input id="title" name="title" type="text" class="input"
+               placeholder="e.g. Monthly salary · May" required autofocus />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="amount">Amount</label>
+          <div class="input-affix">
+            <span class="affix left" style="font-weight: 600; color: var(--text-2);">{{ cur }}</span>
+            <input id="amount" name="amount" type="number" step="0.01" min="0"
+                   class="input has-left" placeholder="0.00" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date" class="input" value="{{ today }}" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="category">Source <span class="muted" style="font-weight: 400;">(optional)</span></label>
+        <input id="category" name="category" type="text" class="input"
+               placeholder="e.g. Salary, Freelance, Gift, Refund" list="income-source-list" />
+        <datalist id="income-source-list">
+          <option value="Salary"></option>
+          <option value="Freelance"></option>
+          <option value="Bonus"></option>
+          <option value="Gift"></option>
+          <option value="Refund"></option>
+          <option value="Investment"></option>
+          <option value="Side hustle"></option>
+        </datalist>
+        <span class="hint">A free-text label so you can group income on the dashboard.</span>
+      </div>
+
+      <div class="field">
+        <label for="notes">Notes <span class="muted" style="font-weight: 400;">(optional)</span></label>
+        <textarea id="notes" name="notes" class="textarea"
+                  placeholder="Any context worth remembering — client name, bonus reason, etc."></textarea>
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('list_income') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-check"></i> Save income
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

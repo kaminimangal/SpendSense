@@ -4,10 +4,11 @@
 
 {% block content %}
 
-{# ----- Compute a few summary values in Jinja ----- #}
+{# ----- Compute summary values in Jinja ----- #}
+{% set cur = currency or '$' %}
 {% set total_spent = totals|sum %}
-{% set expense_count = expenses|length %}
-{% set avg_expense = (total_spent / expense_count) if expense_count > 0 else 0 %}
+{% set expense_count_all = all_expenses_count or 0 %}
+{% set avg_expense = (total_spent / expense_count_all) if expense_count_all > 0 else 0 %}
 {% if totals and totals|length > 0 %}
   {% set _max = totals|max %}
   {% set _top_idx = totals.index(_max) %}
@@ -24,8 +25,8 @@
     <p>Here's a snapshot of your spending across all categories.</p>
   </div>
   <div class="ph-actions">
-    <a href="{{ url_for('list_budgets') }}" class="btn btn-secondary">
-      <i class="fa-solid fa-bullseye"></i> Budgets
+    <a href="{{ url_for('monthly_summary') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-chart-line"></i> Trends
     </a>
     <a href="{{ url_for('add_expense') }}" class="btn btn-primary">
       <i class="fa-solid fa-plus"></i> Add expense
@@ -33,15 +34,32 @@
   </div>
 </div>
 
-{# ---------- Stat cards ---------- #}
+{# ---------- Stat cards (5-up incl. Net Balance) ---------- #}
 <div class="stat-grid">
+  {# Net Balance — emphasised first #}
+  <div class="stat is-net">
+    <div class="stat-head">
+      <span class="stat-label">Net balance</span>
+      <span class="stat-icon"><i class="fa-solid fa-scale-balanced"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.2f}'.format(net_balance) }}</div>
+    <div class="stat-foot">
+      <span class="delta {% if net_balance >= 0 %}up{% else %}down{% endif %}">
+        <i class="fa-solid {% if net_balance >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+        {{ cur }}{{ '{:,.0f}'.format(total_income) }} in
+      </span>
+      ·
+      <span class="delta down">{{ cur }}{{ '{:,.0f}'.format(total_expense) }} out</span>
+    </div>
+  </div>
+
   <div class="stat">
     <div class="stat-head">
       <span class="stat-label">Total spent</span>
       <span class="stat-icon"><i class="fa-solid fa-wallet"></i></span>
     </div>
-    <div class="stat-value">${{ '{:,.2f}'.format(total_spent) }}</div>
-    <div class="stat-foot">Across {{ expense_count }} expense{{ '' if expense_count == 1 else 's' }}</div>
+    <div class="stat-value">{{ cur }}{{ '{:,.2f}'.format(total_spent) }}</div>
+    <div class="stat-foot">Across {{ expense_count_all }} expense{{ '' if expense_count_all == 1 else 's' }}</div>
   </div>
 
   <div class="stat">
@@ -50,7 +68,7 @@
       <span class="stat-icon is-violet"><i class="fa-solid fa-crown"></i></span>
     </div>
     <div class="stat-value" style="font-size: 22px;">{{ top_category }}</div>
-    <div class="stat-foot">${{ '{:,.2f}'.format(top_amount) }} this period</div>
+    <div class="stat-foot">{{ cur }}{{ '{:,.2f}'.format(top_amount) }} this period</div>
   </div>
 
   <div class="stat">
@@ -58,7 +76,7 @@
       <span class="stat-label">Expenses logged</span>
       <span class="stat-icon is-blue"><i class="fa-solid fa-receipt"></i></span>
     </div>
-    <div class="stat-value">{{ expense_count }}</div>
+    <div class="stat-value">{{ expense_count_all }}</div>
     <div class="stat-foot">All time</div>
   </div>
 
@@ -67,7 +85,7 @@
       <span class="stat-label">Average expense</span>
       <span class="stat-icon is-amber"><i class="fa-solid fa-chart-line"></i></span>
     </div>
-    <div class="stat-value">${{ '{:,.2f}'.format(avg_expense) }}</div>
+    <div class="stat-value">{{ cur }}{{ '{:,.2f}'.format(avg_expense) }}</div>
     <div class="stat-foot">Per entry</div>
   </div>
 </div>
@@ -93,11 +111,11 @@
           </div>
           <div class="a-text">
             {% if w.over %}
-              <b>{{ w.category }}</b> is over budget by <b>${{ '{:,.2f}'.format(w.spent - w.limit) }}</b>.
+              <b>{{ w.category }}</b> is over budget by <b>{{ cur }}{{ '{:,.2f}'.format(w.spent - w.limit) }}</b>.
             {% else %}
               <b>{{ w.category }}</b> is approaching its limit.
             {% endif %}
-            <small>${{ '{:,.2f}'.format(w.spent) }} spent of ${{ '{:,.2f}'.format(w.limit) }} budgeted</small>
+            <small>{{ cur }}{{ '{:,.2f}'.format(w.spent) }} spent of {{ cur }}{{ '{:,.2f}'.format(w.limit) }} budgeted</small>
           </div>
           <div class="a-pct">{{ '%.0f'|format(w.percentage) }}%</div>
         </div>
@@ -124,7 +142,7 @@
           <canvas id="categoryChart"></canvas>
           <div class="chart-center">
             <div class="cc-label">Total</div>
-            <div class="cc-value">${{ '{:,.0f}'.format(total_spent) }}</div>
+            <div class="cc-value">{{ cur }}{{ '{:,.0f}'.format(total_spent) }}</div>
           </div>
         </div>
         <div class="legend" id="categoryLegend">
@@ -135,7 +153,7 @@
               <span class="sw" data-i="{{ loop.index0 }}"></span>
               <span class="lbl">{{ cat }}</span>
               <span class="pct">{{ '%.1f'|format(pct) }}%</span>
-              <span class="val">${{ '{:,.2f}'.format(amt) }}</span>
+              <span class="val">{{ cur }}{{ '{:,.2f}'.format(amt) }}</span>
             </div>
           {% endfor %}
         </div>
@@ -184,20 +202,76 @@
   </div>
 </div>
 
-{# ---------- Expenses table ---------- #}
+{# ---------- Expenses table with filters ---------- #}
 <div class="card">
   <div class="card-header">
     <div>
       <h3>Recent expenses</h3>
-      <div class="ch-sub">Every transaction you've logged.</div>
+      <div class="ch-sub">
+        {% if has_filter %}
+          Showing {{ expenses|length }} of {{ expense_count_all }} expenses · filtered
+        {% else %}
+          Every transaction you've logged.
+        {% endif %}
+      </div>
     </div>
     <a href="{{ url_for('add_expense') }}" class="btn btn-secondary">
       <i class="fa-solid fa-plus"></i> New expense
     </a>
   </div>
 
+  {# Filter bar — GET form to /dashboard #}
+  <div class="card-body" style="padding-bottom: 0;">
+    <form method="GET" action="{{ url_for('dashboard') }}" class="filter-bar">
+      <div class="field">
+        <label for="f-q">Search</label>
+        <div class="input-affix">
+          <i class="fa-solid fa-magnifying-glass affix left"></i>
+          <input id="f-q" name="q" type="text" class="input has-left"
+                 placeholder="Title contains…" value="{{ filter_q or '' }}" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-from">From</label>
+        <input id="f-from" name="from" type="date" class="input" value="{{ filter_from or '' }}" />
+      </div>
+      <div class="field">
+        <label for="f-to">To</label>
+        <input id="f-to" name="to" type="date" class="input" value="{{ filter_to or '' }}" />
+      </div>
+      <div class="field">
+        <label for="f-cat">Category</label>
+        <select id="f-cat" name="category" class="select">
+          <option value="">All categories</option>
+          {% for c in all_categories %}
+            <option value="{{ c.id }}" {% if filter_cat == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Amount</label>
+        <div style="display: flex; gap: 6px;">
+          <input name="min" type="number" step="0.01" min="0" class="input"
+                 placeholder="Min" value="{{ filter_min or '' }}" />
+          <input name="max" type="number" step="0.01" min="0" class="input"
+                 placeholder="Max" value="{{ filter_max or '' }}" />
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-filter"></i> Apply
+        </button>
+        {% if has_filter %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-ghost" title="Reset filters">
+          <i class="fa-solid fa-xmark"></i>
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
   {% if expenses and expenses|length > 0 %}
-  <div class="table-wrap">
+  <div class="table-wrap" style="margin-top: 18px;">
     <table class="tbl">
       <thead>
         <tr>
@@ -218,7 +292,13 @@
             <div class="with-icon">
               <span class="cat-dot" style="background: var(--accent);"></span>
               <strong>{{ expense.title }}</strong>
+              {% if expense.is_recurring %}
+                <span class="pill is-slate" style="margin-left: 6px;" title="Recurring">
+                  <i class="fa-solid fa-rotate" style="font-size: 9px;"></i> Recurring
+                </span>
+              {% endif %}
             </div>
+            {% if expense.notes %}<div class="muted" style="font-size: 12px; margin-top: 2px;">{{ expense.notes }}</div>{% endif %}
           </td>
           <td>
             <span class="pill {{ color_classes[cidx] }}">
@@ -226,7 +306,7 @@
             </span>
           </td>
           <td class="muted">{{ expense.date }}</td>
-          <td style="text-align: right;" class="amt">${{ '{:,.2f}'.format(expense.amount) }}</td>
+          <td style="text-align: right;" class="amt">{{ cur }}{{ '{:,.2f}'.format(expense.amount) }}</td>
           <td class="actions-col">
             <a href="{{ url_for('edit_expense', id=expense.id) }}" class="tbl-act" title="Edit">
               <i class="fa-solid fa-pen"></i>
@@ -246,11 +326,19 @@
   {% else %}
   <div class="empty">
     <div class="empty-illo"><i class="fa-solid fa-receipt"></i></div>
-    <h4>No expenses yet</h4>
-    <p>Start tracking your spending by adding your first expense.</p>
-    <a href="{{ url_for('add_expense') }}" class="btn btn-primary">
-      <i class="fa-solid fa-plus"></i> Add your first expense
-    </a>
+    {% if has_filter %}
+      <h4>No expenses match those filters</h4>
+      <p>Try widening the date range or clearing some filters.</p>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+        <i class="fa-solid fa-xmark"></i> Clear filters
+      </a>
+    {% else %}
+      <h4>No expenses yet</h4>
+      <p>Start tracking your spending by adding your first expense.</p>
+      <a href="{{ url_for('add_expense') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Add your first expense
+      </a>
+    {% endif %}
   </div>
   {% endif %}
 </div>
@@ -267,6 +355,7 @@
     var data   = {{ totals|tojson }};
     var palette = ['#10B981','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#64748B','#EF4444'];
     var colors = labels.map(function (_, i) { return palette[i % palette.length]; });
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
 
     document.querySelectorAll('#categoryLegend .sw').forEach(function (el) {
       var i = parseInt(el.dataset.i, 10);
@@ -280,7 +369,7 @@
         datasets: [{
           data: data,
           backgroundColor: colors,
-          borderColor: '#ffffff',
+          borderColor: dark ? '#131C32' : '#ffffff',
           borderWidth: 3,
           hoverOffset: 6
         }]
@@ -302,7 +391,7 @@
                 var v = ctx.raw;
                 var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
                 var pct = total ? (v / total * 100).toFixed(1) : 0;
-                return ' $' + v.toFixed(2) + ' · ' + pct + '%';
+                return ' {{ cur }}' + v.toFixed(2) + ' · ' + pct + '%';
               }
             }
           }

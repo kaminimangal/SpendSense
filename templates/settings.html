@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Settings — FinTracker{% endblock %}
+{% block crumb %}Settings{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Settings</h1>
+    <p>Manage your account, currency, and theme.</p>
+  </div>
+</div>
+
+<div class="settings-grid">
+  <nav class="settings-nav">
+    <a href="#profile" class="is-active"><i class="fa-solid fa-user"></i> Profile</a>
+    <a href="#security"><i class="fa-solid fa-lock"></i> Security</a>
+    <a href="#preferences"><i class="fa-solid fa-sliders"></i> Preferences</a>
+    <a href="#appearance"><i class="fa-solid fa-palette"></i> Appearance</a>
+  </nav>
+
+  <div class="setting-section">
+
+    {# ---------- Profile ---------- #}
+    <div class="card" id="profile">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-user" style="color: var(--accent); margin-right: 8px;"></i> Profile</h3>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('settings') }}" style="display:flex; flex-direction:column; gap: 16px;">
+          <input type="hidden" name="action" value="username" />
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="avatar" style="width: 56px; height: 56px; font-size: 18px;">{{ user.username[:2]|upper }}</div>
+            <div>
+              <div style="font-size: 15px; font-weight: 600;">{{ user.username }}</div>
+              <div class="muted" style="font-size: 12px;">Account ID #{{ user.id }}</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" class="input" value="{{ user.username }}" required />
+            <span class="hint">This is how you sign in.</span>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-check"></i> Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# ---------- Security ---------- #}
+    <div class="card" id="security">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-lock" style="color: var(--accent); margin-right: 8px;"></i> Security</h3>
+        <span class="muted" style="font-size: 12px;">Change your password</span>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('settings') }}" style="display:flex; flex-direction:column; gap: 16px;">
+          <input type="hidden" name="action" value="password" />
+          <div class="field">
+            <label for="current_password">Current password</label>
+            <input id="current_password" name="current_password" type="password" class="input" required />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="new_password">New password</label>
+              <input id="new_password" name="new_password" type="password" class="input" required minlength="6" />
+              <span class="hint">At least 6 characters.</span>
+            </div>
+            <div class="field">
+              <label for="confirm_password">Confirm new password</label>
+              <input id="confirm_password" name="confirm_password" type="password" class="input" required minlength="6" />
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-key"></i> Update password
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# ---------- Preferences (currency) ---------- #}
+    <div class="card" id="preferences">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-sliders" style="color: var(--accent); margin-right: 8px;"></i> Preferences</h3>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('settings') }}" style="display:flex; flex-direction:column; gap: 16px;">
+          <input type="hidden" name="action" value="currency" />
+          <div class="field">
+            <label for="currency">Currency symbol</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input id="currency" name="currency" type="text" class="input"
+                     value="{{ user.currency or '$' }}" maxlength="4" style="max-width: 140px;" />
+              <span class="muted" style="font-size: 13px;">
+                Pick any glyph — $, £, €, ¥, ₹, kr…
+              </span>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-check"></i> Save currency
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# ---------- Appearance (theme) ---------- #}
+    <div class="card" id="appearance">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-palette" style="color: var(--accent); margin-right: 8px;"></i> Appearance</h3>
+        <span class="muted" style="font-size: 12px;">Light or dark, you decide</span>
+      </div>
+      <div class="card-body">
+        <div class="theme-toggle-group">
+          <button type="button" class="theme-tile is-light {% if user.theme != 'dark' %}is-selected{% endif %}"
+                  data-theme="light" id="tile-light">
+            <div class="theme-preview">
+              <div class="tp-sidebar"></div>
+              <div class="tp-main"></div>
+            </div>
+            <div class="tile-name">
+              <i class="fa-solid fa-sun"></i> Light
+              <i class="fa-solid fa-circle-check check"></i>
+            </div>
+          </button>
+          <button type="button" class="theme-tile is-dark {% if user.theme == 'dark' %}is-selected{% endif %}"
+                  data-theme="dark" id="tile-dark">
+            <div class="theme-preview">
+              <div class="tp-sidebar"></div>
+              <div class="tp-main"></div>
+            </div>
+            <div class="tile-name">
+              <i class="fa-solid fa-moon"></i> Dark
+              <i class="fa-solid fa-circle-check check"></i>
+            </div>
+          </button>
+        </div>
+        <p class="muted" style="font-size: 12px; margin-top: 12px;">
+          Your preference is saved to your account and used across devices.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Settings nav scroll highlight
+  (function () {
+    var links = document.querySelectorAll('.settings-nav a');
+    links.forEach(function (a) {
+      a.addEventListener('click', function () {
+        links.forEach(function (l) { l.classList.remove('is-active'); });
+        a.classList.add('is-active');
+      });
+    });
+  })();
+
+  // Theme picker tiles
+  (function () {
+    var tiles = document.querySelectorAll('.theme-tile');
+    tiles.forEach(function (t) {
+      t.addEventListener('click', function () {
+        var theme = t.dataset.theme;
+        // UI update
+        tiles.forEach(function (x) { x.classList.remove('is-selected'); });
+        t.classList.add('is-selected');
+        document.documentElement.setAttribute('data-theme', theme);
+        // Update topbar moon/sun icon if present
+        var icon = document.getElementById('themeIcon');
+        if (icon) icon.className = 'fa-solid ' + (theme === 'dark' ? 'fa-sun' : 'fa-moon');
+        // Persist
+        var fd = new FormData();
+        fd.append('action', 'theme');
+        fd.append('theme', theme);
+        fetch("{{ url_for('settings') }}", { method: 'POST', body: fd });
+      });
+    });
+  })();
+</script>
+{% endblock %}

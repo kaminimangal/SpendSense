@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}Savings goals — FinTracker{% endblock %}
+{% block crumb %}Goals{% endblock %}
+
+{% block content %}
+{% set cur = currency or '$' %}
+
+{# Summary computations #}
+{% set total_target = goals|sum(attribute='target_amount') %}
+{% set total_saved  = goals|sum(attribute='saved_amount') %}
+{% set completed = [] %}
+{% for g in goals %}{% if g.saved_amount >= g.target_amount %}{% set _ = completed.append(g) %}{% endif %}{% endfor %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Savings goals</h1>
+    <p>Name what you're saving for, set a target, and watch the progress add up.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Dashboard
+    </a>
+    <a href="{{ url_for('add_goal') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> New goal
+    </a>
+  </div>
+</div>
+
+{% if goals and goals|length > 0 %}
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Active goals</span>
+      <span class="stat-icon"><i class="fa-solid fa-piggy-bank"></i></span>
+    </div>
+    <div class="stat-value">{{ goals|length }}</div>
+    <div class="stat-foot">{{ completed|length }} completed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Total target</span>
+      <span class="stat-icon is-violet"><i class="fa-solid fa-bullseye"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.2f}'.format(total_target) }}</div>
+    <div class="stat-foot">Across all goals</div>
+  </div>
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Total saved</span>
+      <span class="stat-icon is-blue"><i class="fa-solid fa-coins"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.2f}'.format(total_saved) }}</div>
+    <div class="stat-foot">
+      {% if total_target > 0 %}{{ '%.0f'|format(total_saved / total_target * 100) }}% of total{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Remaining</span>
+      <span class="stat-icon is-amber"><i class="fa-solid fa-hourglass-half"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.2f}'.format(total_target - total_saved) }}</div>
+    <div class="stat-foot">To reach all targets</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>Your goals</h3>
+      <div class="ch-sub">{{ goals|length }} total · drag a goal to nudge it forward by editing.</div>
+    </div>
+    <a href="{{ url_for('add_goal') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-plus"></i> New goal
+    </a>
+  </div>
+  <div class="card-body">
+    <div class="goal-grid">
+      {% for g in goals %}
+        {% set pct_raw  = (g.saved_amount / g.target_amount * 100) if g.target_amount > 0 else 0 %}
+        {% set pct      = pct_raw if pct_raw <= 100 else 100 %}
+        {% set complete = g.saved_amount >= g.target_amount %}
+        <div class="goal-card {% if complete %}is-complete{% endif %}">
+          <div class="goal-head">
+            <div>
+              <div class="g-title">{{ g.name }}</div>
+              {% if g.deadline %}
+                <div class="g-deadline">
+                  <i class="fa-regular fa-calendar"></i> Target by {{ g.deadline }}
+                </div>
+              {% endif %}
+            </div>
+            <div class="b-actions">
+              <a href="{{ url_for('edit_goal', id=g.id) }}" class="tbl-act" title="Edit">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="POST" action="{{ url_for('delete_goal', id=g.id) }}" class="inline-form"
+                    onsubmit="return confirm('Delete the goal {{ g.name }}?');">
+                <button type="submit" class="tbl-act is-danger" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="goal-amounts">
+            <div class="goal-saved">
+              {{ cur }}{{ '{:,.2f}'.format(g.saved_amount) }}
+              <span class="of">of <b>{{ cur }}{{ '{:,.2f}'.format(g.target_amount) }}</b></span>
+            </div>
+            <span class="goal-pct">{{ '%.0f'|format(pct_raw) }}%</span>
+          </div>
+
+          <div class="progress">
+            <div class="progress-bar"
+                 data-width="{{ '%.1f'|format(pct) }}"
+                 style="width: 0%;"></div>
+          </div>
+
+          <div class="goal-foot">
+            {% if complete %}
+              <span class="goal-complete-banner">
+                <i class="fa-solid fa-check-circle"></i> Goal reached
+              </span>
+              <span class="remain">{{ cur }}{{ '{:,.2f}'.format(g.saved_amount - g.target_amount) }} over</span>
+            {% else %}
+              <span><i class="fa-regular fa-clock" style="color: var(--text-3); margin-right: 6px;"></i> In progress</span>
+              <span class="remain">{{ cur }}{{ '{:,.2f}'.format(g.target_amount - g.saved_amount) }} to go</span>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+<div class="card">
+  <div class="empty">
+    <div class="empty-illo"><i class="fa-solid fa-piggy-bank"></i></div>
+    <h4>No goals yet</h4>
+    <p>Set a target for your next vacation, an emergency fund, a new laptop — whatever you're saving for.</p>
+    <a href="{{ url_for('add_goal') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Create your first goal
+    </a>
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.addEventListener('load', function () {
+    document.querySelectorAll('.progress-bar').forEach(function (bar) {
+      var w = parseFloat(bar.dataset.width || '0');
+      requestAnimationFrame(function () { bar.style.width = w + '%'; });
+    });
+  });
+</script>
+{% endblock %}

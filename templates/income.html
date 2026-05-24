@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %}Income — FinTracker{% endblock %}
+{% block crumb %}Income{% endblock %}
+
+{% block content %}
+{% set cur = currency or '$' %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Income</h1>
+    <p>Track every dollar coming in — your salary, freelance work, gifts, refunds.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Dashboard
+    </a>
+    <a href="{{ url_for('add_income') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> New income
+    </a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat is-net">
+    <div class="stat-head">
+      <span class="stat-label">Total received</span>
+      <span class="stat-icon"><i class="fa-solid fa-arrow-trend-up"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.2f}'.format(total) }}</div>
+    <div class="stat-foot">From {{ incomes|length }} entr{{ 'y' if incomes|length == 1 else 'ies' }}</div>
+  </div>
+
+  {% set this_month_total = namespace(v=0) %}
+  {% set now_key = '' %}
+  {% for i in incomes %}
+    {% if i.date[:7] == (incomes[0].date[:7] if incomes else '') %}
+      {% set this_month_total.v = this_month_total.v + i.amount %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Most recent</span>
+      <span class="stat-icon is-blue"><i class="fa-solid fa-clock"></i></span>
+    </div>
+    <div class="stat-value" style="font-size: 22px;">
+      {% if incomes %}{{ cur }}{{ '{:,.2f}'.format(incomes[0].amount) }}{% else %}—{% endif %}
+    </div>
+    <div class="stat-foot">
+      {% if incomes %}{{ incomes[0].title }} · {{ incomes[0].date }}{% else %}No income yet{% endif %}
+    </div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Sources</span>
+      <span class="stat-icon is-violet"><i class="fa-solid fa-layer-group"></i></span>
+    </div>
+    {% set sources = [] %}
+    {% for i in incomes %}{% if i.category and i.category not in sources %}{% set _ = sources.append(i.category) %}{% endif %}{% endfor %}
+    <div class="stat-value">{{ sources|length }}</div>
+    <div class="stat-foot">Unique income source{{ '' if sources|length == 1 else 's' }}</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Average</span>
+      <span class="stat-icon is-amber"><i class="fa-solid fa-chart-line"></i></span>
+    </div>
+    <div class="stat-value">
+      {{ cur }}{{ '{:,.2f}'.format((total / incomes|length) if incomes|length > 0 else 0) }}
+    </div>
+    <div class="stat-foot">Per entry</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>All income</h3>
+      <div class="ch-sub">Most recent first.</div>
+    </div>
+    <a href="{{ url_for('add_income') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-plus"></i> New income
+    </a>
+  </div>
+
+  {% if incomes and incomes|length > 0 %}
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Source</th>
+          <th>Date</th>
+          <th style="text-align: right;">Amount</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inc in incomes %}
+        {% set color_classes = ['is-green','is-blue','is-amber','is-violet','is-pink','is-cyan','is-slate'] %}
+        {% set src = inc.category or 'Other' %}
+        {% set cidx = (src|length) % 7 %}
+        <tr>
+          <td>
+            <div class="with-icon">
+              <span class="cat-dot" style="background: var(--accent);"></span>
+              <strong>{{ inc.title }}</strong>
+            </div>
+            {% if inc.notes %}<div class="muted" style="font-size: 12px; margin-top: 2px;">{{ inc.notes }}</div>{% endif %}
+          </td>
+          <td>
+            <span class="pill {{ color_classes[cidx] }}">
+              <span class="cat-dot"></span> {{ src }}
+            </span>
+          </td>
+          <td class="muted">{{ inc.date }}</td>
+          <td style="text-align: right;" class="amt" style="color: var(--accent-600);">
+            +{{ cur }}{{ '{:,.2f}'.format(inc.amount) }}
+          </td>
+          <td class="actions-col">
+            <a href="{{ url_for('edit_income', id=inc.id) }}" class="tbl-act" title="Edit">
+              <i class="fa-solid fa-pen"></i>
+            </a>
+            <form method="POST" action="{{ url_for('delete_income', id=inc.id) }}" class="inline-form"
+                  onsubmit="return confirm('Delete this income entry?');">
+              <button type="submit" class="tbl-act is-danger" title="Delete">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-illo"><i class="fa-solid fa-arrow-trend-up"></i></div>
+    <h4>No income yet</h4>
+    <p>Log your salary, freelance gigs, side hustles — anything coming in.</p>
+    <a href="{{ url_for('add_income') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add your first income
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

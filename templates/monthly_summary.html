@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% block title %}Trends — FinTracker{% endblock %}
+{% block crumb %}Trends{% endblock %}
+
+{% block content %}
+{% set cur = currency or '$' %}
+{% set total_12mo  = trend_totals|sum %}
+{% set total_inc   = trend_income|sum %}
+{% set avg_monthly = (total_12mo / 12) if total_12mo > 0 else 0 %}
+
+{# Find peak month for stat #}
+{% set peak_idx = 0 %}
+{% set peak_val = 0 %}
+{% for v in trend_totals %}
+  {% if v > peak_val %}
+    {% set peak_val = v %}
+    {% set peak_idx = loop.index0 %}
+  {% endif %}
+{% endfor %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Spending trends</h1>
+    <p>Twelve-month view of where your money has gone and what's come in.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Dashboard
+    </a>
+    <a href="{{ url_for('export_csv') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-file-csv"></i> Export CSV
+    </a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Last 12 months · out</span>
+      <span class="stat-icon"><i class="fa-solid fa-arrow-trend-down"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.0f}'.format(total_12mo) }}</div>
+    <div class="stat-foot">Total spent</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Last 12 months · in</span>
+      <span class="stat-icon is-blue"><i class="fa-solid fa-arrow-trend-up"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.0f}'.format(total_inc) }}</div>
+    <div class="stat-foot">Total received</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Average month</span>
+      <span class="stat-icon is-amber"><i class="fa-solid fa-chart-column"></i></span>
+    </div>
+    <div class="stat-value">{{ cur }}{{ '{:,.0f}'.format(avg_monthly) }}</div>
+    <div class="stat-foot">Spending per month</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Peak month</span>
+      <span class="stat-icon is-violet"><i class="fa-solid fa-mountain"></i></span>
+    </div>
+    <div class="stat-value" style="font-size: 20px;">{{ trend_labels[peak_idx] if trend_labels else '—' }}</div>
+    <div class="stat-foot">{{ cur }}{{ '{:,.2f}'.format(peak_val) }} spent</div>
+  </div>
+</div>
+
+{# ---------- 12-month chart ---------- #}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>Spending vs income · last 12 months</h3>
+      <div class="ch-sub">Bars show spending. Line shows income.</div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--text-2);">
+      <span><i class="fa-solid fa-square" style="color: #10B981;"></i> Spending</span>
+      <span><i class="fa-solid fa-circle" style="color: #3B82F6; font-size: 8px; margin-right: 2px;"></i> Income</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div style="position: relative; height: 340px;">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="dash-grid">
+  {# ---------- Per-month breakdown ---------- #}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Month-by-month</h3>
+        <div class="ch-sub">Newest first · change vs. previous month.</div>
+      </div>
+    </div>
+    {% if summary_data and summary_data|length > 0 %}
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th style="text-align: right;">Total spent</th>
+            <th style="text-align: right;">vs. prev</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in summary_data %}
+          <tr>
+            <td><strong>{{ d.label }}</strong></td>
+            <td style="text-align: right;" class="amt">{{ cur }}{{ '{:,.2f}'.format(d.total) }}</td>
+            <td style="text-align: right;">
+              {% if d.change_pct is none %}
+                <span class="muted">—</span>
+              {% else %}
+                <span class="delta {% if d.up %}down{% else %}up{% endif %}">
+                  <i class="fa-solid {% if d.up %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                  {{ '%.1f'|format(d.change_pct|abs) }}%
+                </span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <div class="empty-illo"><i class="fa-solid fa-chart-line"></i></div>
+      <h4>Not enough data yet</h4>
+      <p>Log expenses across a few months to see the trend.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---------- Email report ---------- #}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Email this month's report</h3>
+        <div class="ch-sub">Send a copy of {{ now.strftime('%B %Y') }}'s spending summary.</div>
+      </div>
+      <span class="pill is-green"><i class="fa-solid fa-envelope" style="font-size: 10px;"></i> SMTP</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('send_report') }}" class="report-form-row">
+        <div class="field" style="grid-column: 1 / -1;">
+          <label for="email">Send to</label>
+          <div class="input-affix">
+            <i class="fa-solid fa-envelope affix left"></i>
+            <input id="email" name="email" type="email" class="input has-left"
+                   placeholder="you@example.com" required />
+          </div>
+          <span class="hint">A formatted summary of {{ now.strftime('%B %Y') }} (totals, by-category breakdown, every expense) is sent via Gmail SMTP.</span>
+        </div>
+        <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1; justify-self: flex-start;">
+          <i class="fa-solid fa-paper-plane"></i> Send report
+        </button>
+      </form>
+
+      <div class="flash is-info" style="margin-top: 16px;">
+        <i class="fa-solid fa-circle-info"></i>
+        <div>
+          <b>Heads up:</b> Set <code>MAIL_USERNAME</code> and <code>MAIL_PASSWORD</code> env vars
+          before sending. Gmail requires an <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color: inherit; text-decoration: underline;">App Password</a>, not your regular password.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    var ctx = document.getElementById('trendChart');
+    if (!ctx) return;
+    var labels = {{ trend_labels|tojson }};
+    var spend  = {{ trend_totals|tojson }};
+    var income = {{ trend_income|tojson }};
+    var dark   = document.documentElement.getAttribute('data-theme') === 'dark';
+    var gridCol = dark ? 'rgba(255,255,255,.06)' : 'rgba(15,23,42,.06)';
+    var tickCol = dark ? '#94A3B8' : '#475569';
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Spending',
+            data: spend,
+            backgroundColor: 'rgba(16,185,129,.85)',
+            borderRadius: 6,
+            borderSkipped: false,
+            barPercentage: 0.7,
+            categoryPercentage: 0.7,
+            order: 2
+          },
+          {
+            type: 'line',
+            label: 'Income',
+            data: income,
+            borderColor: '#3B82F6',
+            backgroundColor: 'rgba(59,130,246,.18)',
+            borderWidth: 2.5,
+            tension: 0.35,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: '#3B82F6',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            order: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0F172A',
+            padding: 12,
+            cornerRadius: 8,
+            titleFont: { family: 'Inter', weight: '600' },
+            bodyFont:  { family: 'Inter' },
+            callbacks: {
+              label: function (c) {
+                return ' ' + c.dataset.label + ': {{ cur }}' + c.raw.toFixed(2);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: tickCol, font: { family: 'Inter', size: 11 } }
+          },
+          y: {
+            grid: { color: gridCol, drawBorder: false },
+            ticks: {
+              color: tickCol, font: { family: 'Inter', size: 11 },
+              callback: function (v) { return '{{ cur }}' + v.toLocaleString(); }
+            }
+          }
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}

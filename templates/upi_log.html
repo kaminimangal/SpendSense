@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}UPI log — FinTracker{% endblock %}
+{% block crumb %}UPI log{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Log a UPI transaction</h1>
+    <p>Paste the reference ID from your PhonePe / GPay / Paytm notification to log it instantly.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Dashboard
+    </a>
+  </div>
+</div>
+
+<div class="card form-card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-mobile-screen-button" style="color: var(--accent); margin-right: 8px;"></i> UPI transaction</h3>
+    <span class="muted" style="font-size: 12px;">Duplicate refs are blocked</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('upi_log') }}"
+          class="form-grid" style="display:flex; flex-direction:column; gap: 18px;" novalidate>
+
+      <div class="field">
+        <label for="upi_ref">UPI reference</label>
+        <div class="input-affix">
+          <i class="fa-solid fa-hashtag affix left"></i>
+          <input id="upi_ref" name="upi_ref" type="text" class="input has-left"
+                 placeholder="e.g. 312345678901" required autofocus />
+        </div>
+        <span class="hint">The 12-digit transaction ID from your UPI app notification.</span>
+      </div>
+
+      <div class="field">
+        <label for="title">What was it for?</label>
+        <input id="title" name="title" type="text" class="input"
+               placeholder="e.g. Lunch at Pizza Corner" required />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="amount">Amount</label>
+          <div class="input-affix">
+            <span class="affix left" style="font-weight: 600; color: var(--text-2);">{{ current_user.currency or '$' }}</span>
+            <input id="amount" name="amount" type="number" step="0.01" min="0"
+                   class="input has-left" placeholder="0.00" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date" class="input" value="{{ today }}" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="category">Category</label>
+        {% if categories and categories|length > 0 %}
+          <select id="category" name="category" class="select" required>
+            <option value="" disabled selected>Choose a category…</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <div class="flash is-warning" style="margin: 0;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+              No categories yet.
+              <a href="{{ url_for('add_category') }}" style="font-weight: 600; text-decoration: underline;">Create one first</a>.
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" {% if not categories %}disabled{% endif %}>
+          <i class="fa-solid fa-check"></i> Log transaction
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

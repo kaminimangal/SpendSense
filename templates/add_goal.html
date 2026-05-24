@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}New goal — FinTracker{% endblock %}
+{% block crumb %}Goals · New{% endblock %}
+
+{% block content %}
+{% set cur = currency or '$' %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Create a savings goal</h1>
+    <p>Name it, pick a target, optionally set a deadline. We'll show the progress.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('list_goals') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Back to goals
+    </a>
+  </div>
+</div>
+
+<div class="card form-card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-piggy-bank" style="color: var(--accent); margin-right: 8px;"></i> Goal details</h3>
+    <span class="muted" style="font-size: 12px;">Name &amp; target required</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('add_goal') }}"
+          class="form-grid" style="display:flex; flex-direction:column; gap: 18px;" novalidate>
+
+      <div class="field">
+        <label for="name">Goal name</label>
+        <input id="name" name="name" type="text" class="input"
+               placeholder="e.g. Emergency fund · Tokyo trip · New laptop" required autofocus />
+        <span class="hint">Make it concrete — "Italy trip — Aug 2026" beats "Save more".</span>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="target_amount">Target amount</label>
+          <div class="input-affix">
+            <span class="affix left" style="font-weight: 600; color: var(--text-2);">{{ cur }}</span>
+            <input id="target_amount" name="target_amount" type="number" step="0.01" min="0"
+                   class="input has-left" placeholder="5000.00" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="saved_amount">Already saved <span class="muted" style="font-weight: 400;">(optional)</span></label>
+          <div class="input-affix">
+            <span class="affix left" style="font-weight: 600; color: var(--text-2);">{{ cur }}</span>
+            <input id="saved_amount" name="saved_amount" type="number" step="0.01" min="0"
+                   class="input has-left" placeholder="0.00" />
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="deadline">Deadline <span class="muted" style="font-weight: 400;">(optional)</span></label>
+        <input id="deadline" name="deadline" type="date" class="input" />
+        <span class="hint">When do you want to hit this target?</span>
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('list_goals') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-check"></i> Create goal
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

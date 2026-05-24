@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{% if current_user.is_authenticated and current_user.theme == 'dark' %}dark{% else %}light{% endif %}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -32,10 +32,30 @@
            class="nav-item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
           <i class="fa-solid fa-chart-pie"></i> Dashboard
         </a>
+        <a href="{{ url_for('monthly_summary') }}"
+           class="nav-item {% if request.endpoint == 'monthly_summary' %}is-active{% endif %}">
+          <i class="fa-solid fa-chart-line"></i> Trends
+        </a>
+      </nav>
+
+      <nav class="nav-group" aria-label="Money">
+        <div class="nav-label">Money</div>
         <a href="{{ url_for('add_expense') }}"
            class="nav-item {% if request.endpoint in ['add_expense','edit_expense'] %}is-active{% endif %}">
           <i class="fa-solid fa-receipt"></i> Expenses
         </a>
+        <a href="{{ url_for('list_income') }}"
+           class="nav-item {% if request.endpoint in ['list_income','add_income','edit_income'] %}is-active{% endif %}">
+          <i class="fa-solid fa-arrow-trend-up"></i> Income
+        </a>
+        <a href="{{ url_for('upi_log') }}"
+           class="nav-item {% if request.endpoint == 'upi_log' %}is-active{% endif %}">
+          <i class="fa-solid fa-mobile-screen-button"></i> UPI log
+        </a>
+      </nav>
+
+      <nav class="nav-group" aria-label="Planning">
+        <div class="nav-label">Planning</div>
         <a href="{{ url_for('list_categories') }}"
            class="nav-item {% if request.endpoint in ['list_categories','add_category','edit_category'] %}is-active{% endif %}">
           <i class="fa-solid fa-tags"></i> Categories
@@ -44,15 +64,20 @@
            class="nav-item {% if request.endpoint in ['list_budgets','add_budget','edit_budget'] %}is-active{% endif %}">
           <i class="fa-solid fa-bullseye"></i> Budgets
         </a>
+        <a href="{{ url_for('list_goals') }}"
+           class="nav-item {% if request.endpoint in ['list_goals','add_goal','edit_goal'] %}is-active{% endif %}">
+          <i class="fa-solid fa-piggy-bank"></i> Goals
+        </a>
       </nav>
 
       <nav class="nav-group" aria-label="Account">
         <div class="nav-label">Account</div>
-        <a href="#" class="nav-item">
+        <a href="{{ url_for('settings') }}"
+           class="nav-item {% if request.endpoint == 'settings' %}is-active{% endif %}">
           <i class="fa-solid fa-gear"></i> Settings
         </a>
-        <a href="#" class="nav-item">
-          <i class="fa-solid fa-circle-question"></i> Help &amp; support
+        <a href="{{ url_for('export_csv') }}" class="nav-item">
+          <i class="fa-solid fa-file-csv"></i> Export CSV
         </a>
       </nav>
 
@@ -90,13 +115,16 @@
         </div>
 
         <div class="top-actions">
+          <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">
+            <i class="fa-solid fa-moon" id="themeIcon"></i>
+          </button>
           <button class="icon-btn" title="Notifications" aria-label="Notifications">
             <i class="fa-regular fa-bell"></i>
             <span class="dot"></span>
           </button>
-          <button class="icon-btn" title="Settings" aria-label="Settings">
+          <a class="icon-btn" href="{{ url_for('settings') }}" title="Settings" aria-label="Settings">
             <i class="fa-solid fa-gear"></i>
-          </button>
+          </a>
         </div>
       </header>
 
@@ -154,6 +182,35 @@
           input.select();
         }
       });
+    })();
+
+    // Theme quick-toggle (topbar button) — hits the same /settings POST
+    // endpoint the Settings page uses, so it persists to current_user.theme.
+    (function () {
+      var btn = document.getElementById('themeBtn');
+      if (!btn) return;
+      var icon = document.getElementById('themeIcon');
+      function sync() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (icon) icon.className = 'fa-solid ' + (dark ? 'fa-sun' : 'fa-moon');
+      }
+      sync();
+      {% if current_user.is_authenticated %}
+      btn.addEventListener('click', function () {
+        var current = document.documentElement.getAttribute('data-theme');
+        var next    = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        sync();
+        // Persist server-side
+        var fd = new FormData();
+        fd.append('action', 'theme');
+        fd.append('theme', next);
+        fetch("{{ url_for('settings') }}", { method: 'POST', body: fd })
+          .catch(function(){ /* offline — keep local change */ });
+      });
+      {% else %}
+      btn.style.display = 'none';
+      {% endif %}
     })();
 
     // Back-to-top
