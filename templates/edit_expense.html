@@ -12,10 +12,12 @@
     <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
       <i class="fa-solid fa-arrow-left"></i> Back to dashboard
     </a>
-    <a href="{{ url_for('delete_expense', id=expense.id) }}" class="btn btn-danger"
-       onclick="return confirm('Delete this expense? This cannot be undone.');">
-      <i class="fa-solid fa-trash"></i> Delete
-    </a>
+    <form method="POST" action="{{ url_for('delete_expense', id=expense.id) }}" class="inline-form"
+          onsubmit="return confirm('Delete this expense? This cannot be undone.');">
+      <button type="submit" class="btn btn-danger">
+        <i class="fa-solid fa-trash"></i> Delete
+      </button>
+    </form>
   </div>
 </div>
 

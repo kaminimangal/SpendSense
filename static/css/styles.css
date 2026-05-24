@@ -726,6 +726,190 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 }
 
 /* =========================================================================
+   Budgets
+   ========================================================================= */
+.budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+.budget-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 14px;
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.budget-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+.budget-card.is-warn   { border-color: #FCD34D; }
+.budget-card.is-danger { border-color: #FCA5A5; }
+
+.budget-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.budget-head .b-actions { display: flex; gap: 4px; }
+
+.budget-amounts {
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.budget-spent {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.budget-spent .of {
+  font-size: 14px;
+  color: var(--text-3);
+  font-weight: 500;
+  margin-left: 4px;
+}
+.budget-spent .of b { color: var(--text-2); font-weight: 600; }
+.budget-pct {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-700);
+}
+.budget-pct.is-warn   { background: var(--warning-soft); color: #92400E; }
+.budget-pct.is-danger { background: var(--danger-soft);  color: #991B1B; }
+
+.progress {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: #EEF2F7;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #34D399);
+  transition: width .9s cubic-bezier(.22,.61,.36,1);
+  transform-origin: left center;
+}
+.progress-bar.is-warn   { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+.progress-bar.is-danger { background: linear-gradient(90deg, #EF4444, #F87171); }
+
+.budget-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; color: var(--text-2);
+}
+.budget-foot .remain { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.budget-foot .remain.is-danger { color: var(--danger); }
+
+/* Budget warning alerts on dashboard */
+.alerts { display: flex; flex-direction: column; gap: 10px; }
+.alert-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid;
+  background: var(--surface);
+}
+.alert-row.is-warn   { border-color: #FCD34D; background: var(--warning-soft); }
+.alert-row.is-danger { border-color: #FCA5A5; background: var(--danger-soft);  }
+.alert-row .a-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: rgba(255,255,255,.6);
+}
+.alert-row.is-warn   .a-icon { color: #B45309; }
+.alert-row.is-danger .a-icon { color: #991B1B; }
+.alert-row .a-text { font-size: 13px; line-height: 1.5; color: var(--text); }
+.alert-row .a-text b { font-weight: 700; }
+.alert-row .a-text small { display: block; color: var(--text-2); margin-top: 2px; font-size: 12px; }
+.alert-row .a-pct { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+.alert-row.is-warn   .a-pct { color: #B45309; }
+.alert-row.is-danger .a-pct { color: #991B1B; }
+
+/* =========================================================================
+   Inline delete form (POST)
+   ========================================================================= */
+.inline-form { display: inline-block; margin: 0; }
+.inline-form button { background: transparent; border: 0; padding: 0; cursor: pointer; }
+
+/* =========================================================================
+   Micro-animations & misc polish
+   ========================================================================= */
+@keyframes ftFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stat, .card, .budget-card, .alert-row { animation: ftFadeUp .35s ease both; }
+.stat:nth-child(1) { animation-delay: .02s; }
+.stat:nth-child(2) { animation-delay: .06s; }
+.stat:nth-child(3) { animation-delay: .10s; }
+.stat:nth-child(4) { animation-delay: .14s; }
+.stat { transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease; }
+.stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+
+/* Keyboard hint chip used in topbar */
+.kbd {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 6px;
+  box-shadow: 0 1px 0 var(--border);
+  font-family: var(--font);
+}
+
+/* Back-to-top button */
+.back-top {
+  position: fixed;
+  right: 22px; bottom: 22px;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--sidebar);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.08);
+  display: grid; place-items: center;
+  box-shadow: var(--shadow-lg);
+  opacity: 0; pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  z-index: 40;
+}
+.back-top.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.back-top:hover { background: #131E36; }
+
+/* Skeleton (for empty/loading states) */
+@keyframes ftShimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skel {
+  background: linear-gradient(90deg, #EEF2F7 0%, #F8FAFC 40%, #EEF2F7 80%);
+  background-size: 800px 100%;
+  animation: ftShimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
+
+/* Decorative dotted illustration for empty states */
+.empty-illo {
+  width: 132px; height: 88px;
+  margin: 0 auto 14px;
+  position: relative;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.08) 1px, transparent 0) 0 0 / 12px 12px,
+    linear-gradient(180deg, var(--accent-soft), #fff);
+  border: 1px dashed var(--accent-line);
+  display: grid; place-items: center;
+}
+.empty-illo i { color: var(--accent-600); font-size: 28px; }
+
+/* =========================================================================
    Responsive
    ========================================================================= */
 @media (max-width: 1100px) {

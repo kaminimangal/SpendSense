@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% block title %}Budgets — FinTracker{% endblock %}
+{% block crumb %}Budgets{% endblock %}
+
+{% block content %}
+
+{# Aggregate summary from the budget_data list #}
+{% set total_budgeted = budget_data|sum(attribute='budget.amount') %}
+{% set total_spent    = budget_data|sum(attribute='spent') %}
+{% set over_count = budget_data|selectattr('over')|list|length %}
+
+<div class="page-header">
+  <div class="ph-text">
+    <h1>Budgets</h1>
+    <p>Set monthly caps per category and watch your progress in real time.</p>
+  </div>
+  <div class="ph-actions">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Dashboard
+    </a>
+    <a href="{{ url_for('add_budget') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> New budget
+    </a>
+  </div>
+</div>
+
+{% if budget_data and budget_data|length > 0 %}
+
+{# ---------- Month summary ---------- #}
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Current month</span>
+      <span class="stat-icon is-blue"><i class="fa-solid fa-calendar"></i></span>
+    </div>
+    <div class="stat-value" style="font-size: 22px;">{{ now.strftime('%B %Y') }}</div>
+    <div class="stat-foot">{{ budget_data|length }} budget{{ '' if budget_data|length == 1 else 's' }} tracked</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Total budgeted</span>
+      <span class="stat-icon"><i class="fa-solid fa-bullseye"></i></span>
+    </div>
+    <div class="stat-value">${{ '{:,.2f}'.format(total_budgeted) }}</div>
+    <div class="stat-foot">Across all categories</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Spent this month</span>
+      <span class="stat-icon is-amber"><i class="fa-solid fa-wallet"></i></span>
+    </div>
+    <div class="stat-value">${{ '{:,.2f}'.format(total_spent) }}</div>
+    {% set used_pct = (total_spent / total_budgeted * 100) if total_budgeted > 0 else 0 %}
+    <div class="stat-foot">{{ '%.0f'|format(used_pct) }}% of total budget</div>
+  </div>
+
+  <div class="stat">
+    <div class="stat-head">
+      <span class="stat-label">Over budget</span>
+      <span class="stat-icon" style="background: {% if over_count %}var(--danger-soft){% else %}var(--accent-soft){% endif %}; color: {% if over_count %}var(--danger){% else %}var(--accent-600){% endif %};">
+        <i class="fa-solid {% if over_count %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      </span>
+    </div>
+    <div class="stat-value">{{ over_count }}</div>
+    <div class="stat-foot">
+      {% if over_count == 0 %}All on track{% else %}Categor{{ 'y' if over_count == 1 else 'ies' }} over the cap{% endif %}
+    </div>
+  </div>
+</div>
+
+{# ---------- Budget cards ---------- #}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>{{ now.strftime('%B') }} budgets</h3>
+      <div class="ch-sub">Tracking {{ budget_data|length }} categor{{ 'y' if budget_data|length == 1 else 'ies' }} this month.</div>
+    </div>
+    <a href="{{ url_for('add_budget') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-plus"></i> New budget
+    </a>
+  </div>
+
+  <div class="card-body">
+    <div class="budget-grid">
+      {% for item in budget_data %}
+        {% set pill_classes = ['is-green','is-blue','is-amber','is-violet','is-pink','is-cyan','is-slate'] %}
+        {% set cidx  = (item.budget.category.name|length) % 7 %}
+
+        {% if item.over %}
+          {% set tone = 'is-danger' %}
+        {% elif item.percentage >= 80 %}
+          {% set tone = 'is-warn' %}
+        {% else %}
+          {% set tone = 'is-success' %}
+        {% endif %}
+
+        <div class="budget-card {% if tone != 'is-success' %}{{ tone }}{% endif %}">
+          <div class="budget-head">
+            <span class="pill {{ pill_classes[cidx] }}">
+              <span class="cat-dot"></span> {{ item.budget.category.name }}
+            </span>
+            <div class="b-actions">
+              <a href="{{ url_for('edit_budget', id=item.budget.id) }}" class="tbl-act" title="Edit">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="POST" action="{{ url_for('delete_budget', id=item.budget.id) }}" class="inline-form"
+                    onsubmit="return confirm('Delete the budget for {{ item.budget.category.name }}?');">
+                <button type="submit" class="tbl-act is-danger" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="budget-amounts">
+            <div class="budget-spent">
+              ${{ '{:,.2f}'.format(item.spent) }}
+              <span class="of">of <b>${{ '{:,.2f}'.format(item.budget.amount) }}</b></span>
+            </div>
+            <span class="budget-pct {% if tone != 'is-success' %}{{ tone }}{% endif %}">
+              {{ '%.0f'|format(item.percentage) }}%
+            </span>
+          </div>
+
+          <div class="progress">
+            <div class="progress-bar {% if tone != 'is-success' %}{{ tone }}{% endif %}"
+                 data-width="{{ '%.1f'|format(item.percentage) }}"
+                 style="width: 0%;"></div>
+          </div>
+
+          <div class="budget-foot">
+            {% if item.over %}
+              <span><i class="fa-solid fa-circle-exclamation" style="color: var(--danger); margin-right: 6px;"></i> Over the cap</span>
+              <span class="remain is-danger">Over by ${{ '{:,.2f}'.format(item.spent - item.budget.amount) }}</span>
+            {% else %}
+              <span><i class="fa-solid fa-circle-check" style="color: var(--accent-600); margin-right: 6px;"></i> On track</span>
+              <span class="remain">${{ '{:,.2f}'.format(item.remaining) }} remaining</span>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+<div class="card">
+  <div class="empty">
+    <div class="empty-illo"><i class="fa-solid fa-bullseye"></i></div>
+    <h4>No budgets for {{ now.strftime('%B %Y') }}</h4>
+    <p>Set a monthly cap per category to keep your spending in check.</p>
+    <a href="{{ url_for('add_budget') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Create your first budget
+    </a>
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Animate progress bars on mount
+  window.addEventListener('load', function () {
+    document.querySelectorAll('.progress-bar').forEach(function (bar) {
+      var w = parseFloat(bar.dataset.width || '0');
+      requestAnimationFrame(function () { bar.style.width = w + '%'; });
+    });
+  });
+</script>
+{% endblock %}

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,13 +9,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 
   {% block head_extra %}{% endblock %}
 </head>
-
 <body>
   {% block body %}
   <div class="app-shell">
@@ -31,16 +29,20 @@
       <nav class="nav-group" aria-label="Primary">
         <div class="nav-label">Overview</div>
         <a href="{{ url_for('dashboard') }}"
-          class="nav-item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
+           class="nav-item {% if request.endpoint == 'dashboard' %}is-active{% endif %}">
           <i class="fa-solid fa-chart-pie"></i> Dashboard
         </a>
         <a href="{{ url_for('add_expense') }}"
-          class="nav-item {% if request.endpoint == 'add_expense' or request.endpoint == 'edit_expense' %}is-active{% endif %}">
+           class="nav-item {% if request.endpoint in ['add_expense','edit_expense'] %}is-active{% endif %}">
           <i class="fa-solid fa-receipt"></i> Expenses
         </a>
         <a href="{{ url_for('list_categories') }}"
-          class="nav-item {% if request.endpoint in ['list_categories','add_category','edit_category'] %}is-active{% endif %}">
+           class="nav-item {% if request.endpoint in ['list_categories','add_category','edit_category'] %}is-active{% endif %}">
           <i class="fa-solid fa-tags"></i> Categories
+        </a>
+        <a href="{{ url_for('list_budgets') }}"
+           class="nav-item {% if request.endpoint in ['list_budgets','add_budget','edit_budget'] %}is-active{% endif %}">
+          <i class="fa-solid fa-bullseye"></i> Budgets
         </a>
       </nav>
 
@@ -57,9 +59,7 @@
       <div class="sidebar-footer">
         {% if current_user.is_authenticated %}
         <div class="user-pill">
-          <div class="avatar">
-            {{ current_user.username[:2]|upper }}
-          </div>
+          <div class="avatar">{{ current_user.username[:2]|upper }}</div>
           <div class="user-meta">
             <div class="u-name">{{ current_user.username }}</div>
             <div class="u-sub">Signed in</div>
@@ -85,7 +85,8 @@
 
         <div class="search">
           <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="search" placeholder="Search expenses, categories…" />
+          <input type="search" id="searchInput" placeholder="Search expenses, categories…" />
+          <span class="kbd" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);">⌘ K</span>
         </div>
 
         <div class="top-actions">
@@ -102,43 +103,78 @@
       <div class="page">
         {# ---------- Flash messages ---------- #}
         {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="flash-stack">
-          {% for category, message in messages %}
-          <div class="flash is-{{ category }}">
-            <i class="fa-solid
+          {% if messages %}
+            <div class="flash-stack">
+              {% for category, message in messages %}
+                <div class="flash is-{{ category }}">
+                  <i class="fa-solid
                     {% if category == 'success' %}fa-circle-check
                     {% elif category == 'error' or category == 'danger' %}fa-circle-exclamation
                     {% elif category == 'warning' %}fa-triangle-exclamation
                     {% else %}fa-circle-info{% endif %}"></i>
-            <div>{{ message }}</div>
-            <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Dismiss">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %}
+                  <div>{{ message }}</div>
+                  <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Dismiss">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
       </div>
     </div>
   </div>
+
+  {# ---------- Back-to-top ---------- #}
+  <button class="back-top" id="backTop" aria-label="Back to top" title="Back to top">
+    <i class="fa-solid fa-arrow-up"></i>
+  </button>
   {% endblock %}
 
   <script>
     // Mobile sidebar toggle
     (function () {
       var btn = document.getElementById('menuToggle');
-      var sb = document.getElementById('sidebar');
+      var sb  = document.getElementById('sidebar');
       if (btn && sb) {
         btn.addEventListener('click', function () { sb.classList.toggle('is-open'); });
       }
+    })();
+
+    // ⌘K / Ctrl+K focuses search
+    (function () {
+      var input = document.getElementById('searchInput');
+      if (!input) return;
+      window.addEventListener('keydown', function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          input.focus();
+          input.select();
+        }
+      });
+    })();
+
+    // Back-to-top
+    (function () {
+      var btn = document.getElementById('backTop');
+      if (!btn) return;
+      var main = document.querySelector('.main') || window;
+      var threshold = 300;
+      function onScroll() {
+        var y = (main.scrollTop !== undefined) ? main.scrollTop : window.scrollY;
+        btn.classList.toggle('is-visible', y > threshold);
+      }
+      (main.addEventListener ? main : window).addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('scroll', onScroll, { passive: true });
+      btn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (main.scrollTo) main.scrollTo({ top: 0, behavior: 'smooth' });
+      });
     })();
   </script>
 
   {% block scripts %}{% endblock %}
 </body>
-
 </html>

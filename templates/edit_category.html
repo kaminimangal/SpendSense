@@ -12,10 +12,12 @@
     <a href="{{ url_for('list_categories') }}" class="btn btn-ghost">
       <i class="fa-solid fa-arrow-left"></i> Back to categories
     </a>
-    <a href="{{ url_for('delete_category', id=category.id) }}" class="btn btn-danger"
-       onclick="return confirm('Delete the category \'{{ category.name }}\'? Expenses in it will lose their category.');">
-      <i class="fa-solid fa-trash"></i> Delete
-    </a>
+    <form method="POST" action="{{ url_for('delete_category', id=category.id) }}" class="inline-form"
+          onsubmit="return confirm('Delete the category \'{{ category.name }}\'? Expenses in it will be deleted too.');">
+      <button type="submit" class="btn btn-danger">
+        <i class="fa-solid fa-trash"></i> Delete
+      </button>
+    </form>
   </div>
 </div>
 
